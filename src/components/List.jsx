@@ -6,7 +6,8 @@ export default function List({
   data,
   currentPage = 1,
   totalPages = 1,
-  onPageChange
+  onPageChange,
+  rowClassName
 }) {
 
   const renderTableColumns = () => {
@@ -26,18 +27,22 @@ export default function List({
   }
 
   const renderBody = () => {
-    return data.map((row, rowIndex) => (
-      <tr
-        key={rowIndex}
-        className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-      >
-        {renderRowColumns(row)}
-      </tr>
-    ))
+    return data.map((row, rowIndex) => {
+      const dynamicClass = rowClassName ? rowClassName(row) : 'border-l-transparent';
+
+      return (
+        <tr
+          key={rowIndex}
+          className={`border-b border-slate-100 hover:bg-slate-50 transition-colors border-l-4 border-l-green-400 ${dynamicClass}`}
+        >
+          {renderRowColumns(row)}
+        </tr>
+      )
+    })
   }
 
   return (
-    <div className="w-full bg-[#f0f4f8] p-4 rounded-lg">
+    <div className="w-full bg-[#f0f4f8] rounded-lg">
       <div className="overflow-x-auto rounded-t-md shadow-sm bg-white">
         <table className="w-full text-left border-collapse">
           <thead className="bg-[#1a2e44] text-slate-300 uppercase text-xs font-semibold">
