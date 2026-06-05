@@ -1,4 +1,5 @@
 import Navbar from './components/Navbar'
+import Produtos from './pages/Produtos'
 import Relatorios from './pages/Relatorios'
 
 function App() {
@@ -6,7 +7,7 @@ function App() {
     <div>
       {/* A navbar é reutilizável: cada tela passa o nome do menu ativo */}
       <Navbar active="Relatórios" />
-      <Relatorios />
+      <Produtos />
     </div>
   )
 }
