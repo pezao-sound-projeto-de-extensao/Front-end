@@ -1,19 +1,13 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
-import TestPage from './pages/TestePage'
+import Navbar from './components/Navbar'
+import Relatorios from './pages/Relatorios'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <TestPage />
-      </section>
-    </>
+    <div>
+      {/* A navbar é reutilizável: cada tela passa o nome do menu ativo */}
+      <Navbar active="Relatórios" />
+      <Relatorios />
+    </div>
   )
 }
 

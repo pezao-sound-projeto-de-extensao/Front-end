@@ -1,1 +1,13 @@
 @import "tailwindcss";
+/* Estilos base do site inteiro */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: #e8edf3;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #0d2137;
+}
