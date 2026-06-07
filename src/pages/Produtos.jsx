@@ -6,7 +6,7 @@ import { api } from '../services/api';
 export default function Produtos() {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [products, setProducts] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -17,7 +17,7 @@ export default function Produtos() {
     setError(null);
     
     try {
-      const response = await api.get(`/itens?page=${page}`);
+      const response = await api.get(`/itens?size=10&page=${page}`);
       const payload = response.data;
 
       if (!payload) {
@@ -27,7 +27,7 @@ export default function Produtos() {
       setProducts(payload);
       setTotalPages(payload.totalPages || 1);
     } catch (err) {
-      // setError(err.message);
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
