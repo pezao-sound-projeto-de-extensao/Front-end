@@ -1,15 +1,30 @@
-import Navbar from './components/Navbar'
-import Produtos from './pages/Produtos'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import Layout from './components/Layout'
+import Login from './pages/Login'
 import Relatorios from './pages/Relatorios'
+import Produtos from './pages/Produtos'
 
-function App() {
+export default function App() {
   return (
-    <div>
-      {/* A navbar é reutilizável: cada tela passa o nome do menu ativo */}
-      <Navbar active="Relatórios" />
-      <Produtos />
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          <Route element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>\
+            <Route path="/produtos"      element={<Produtos />} />
+            <Route path="/relatorios"    element={<Relatorios />} />
+          </Route>
+
+          <Route path="/" element={<Navigate to="/produtos" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
-
-export default App

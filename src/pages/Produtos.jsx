@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ProductList from '../components/ProductList';
 import { ProductForm } from '../components/ProductForm';
-import { api } from '../../services/api';
+import { api } from '../services/api';
 
 export default function Produtos() {
   const [isFormVisible, setIsFormVisible] = useState(false);
@@ -18,13 +18,14 @@ export default function Produtos() {
     
     try {
       const response = await api.get(`/itens?page=${page}`);
-      
-      if (!response.data) {
+      const payload = response.data;
+
+      if (!payload) {
         throw new Error('Erro ao buscar os produtos da API');
       }
 
-      setProducts(response.data);
-      setTotalPages(response.meta.totalPages);
+      setProducts(payload);
+      setTotalPages(payload.totalPages || 1);
     } catch (err) {
       // setError(err.message);
     } finally {
