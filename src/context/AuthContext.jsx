@@ -14,11 +14,15 @@ export function AuthProvider({ children }) {
     const { token } = response.data
 
     localStorage.setItem('authToken', token)
+    localStorage.setItem('email', email)
+    localStorage.setItem('senha', senha)
     setUser({ token })
   }
 
   function logout() {
     localStorage.removeItem('authToken')
+    localStorage.removeItem('email')
+    localStorage.removeItem('senha')
     setUser(null)
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../services/api";
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -209,6 +209,14 @@ export default function Login() {
     await login(email, senha)
     navigate('/produtos')
   };
+
+  useEffect(() => {
+    if(localStorage.getItem('email') && localStorage.getItem('senha')) {
+      localStorage.removeItem('authToken')
+      login(localStorage.getItem('email'), localStorage.getItem('senha'))
+      navigate('/produtos')
+    }
+  }, []);
 
   return (
     <div style={styles.root}>

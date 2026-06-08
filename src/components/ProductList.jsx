@@ -12,20 +12,19 @@ export default function ProductList({
 }) {
   
   const productColumns = [
-    { header: 'PRODUTO', key: 'name' },
-    { header: 'CATEGORIA', key: 'category' },
-    { header: 'QTD ATUAL', key: 'currentStock' },
-    { header: 'QTD MÍNIMA', key: 'minStock' },
-    { header: 'PREÇO VENDA', key: 'price' },
+    { header: 'PRODUTO', key: 'nome' },
+    { header: 'QTD ATUAL', key: 'quantidadeAtual' },
+    { header: 'QTD MÍNIMA', key: 'quantidadeMinima' },
+    { header: 'PREÇO VENDA', key: 'precoVenda' },
     {
       header: 'STATUS',
       render: (row) => {
         let badgeColor = 'outline';
-        if (row.status === 'OK') badgeColor = 'green';
-        else if (row.status === 'Baixo') badgeColor = 'yellow';
-        else if (row.status === 'Zerado') badgeColor = 'red';
+        if (row.quantidadeAtual >= row.quantidadeMinima) badgeColor = 'green';
+        else if (row.quantidadeAtual > 0) badgeColor = 'yellow';
+        else badgeColor = 'red';
 
-        return <StatusBadge text={row.status} type={badgeColor} />;
+        return <StatusBadge text={row.quantidadeAtual >= row.quantidadeMinima ? 'OK' : row.quantidadeAtual > 0 ? 'Baixo' : 'Zerado'} type={badgeColor} />;
       }
     },
     {

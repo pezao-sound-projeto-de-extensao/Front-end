@@ -6,7 +6,7 @@ import { api } from '../services/api';
 export default function Produtos() {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [products, setProducts] = useState([]);
-  const [currentPage, setCurrentPage] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -17,17 +17,24 @@ export default function Produtos() {
     setError(null);
     
     try {
-      const response = await api.get(`/itens?size=10&page=${page}`);
+      const response = await api.get(`/itens?size=5&page=${page-1}`);
       const payload = response.data;
+
+      console.log('Resposta da API:', payload);
 
       if (!payload) {
         throw new Error('Erro ao buscar os produtos da API');
       }
 
-      setProducts(payload);
+      setProducts(payload.content);
       setTotalPages(payload.totalPages || 1);
     } catch (err) {
-      setError(err.message);
+      if(err.response && err.response.status === 401) {
+        localStorage.removeItem('authToken');
+        window.location.href = '/login';
+      } else {
+        setError(err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -41,7 +48,7 @@ export default function Produtos() {
   const handleDelete = (id) => console.log('Excluir', id);
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8] p-8">
+    <div className="p-8">
       <div className="max-w-6xl mx-auto">
         
         <div className="flex justify-between items-center mb-6">
