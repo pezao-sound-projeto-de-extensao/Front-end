@@ -8,10 +8,10 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM alpine:3.20
+FROM nginx:stable-alpine
 
-WORKDIR /app
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-COPY --from=builder /app/dist ./dist
+EXPOSE 80
 
-CMD ["sh"]
+CMD ["nginx", "-g", "daemon off;"]
