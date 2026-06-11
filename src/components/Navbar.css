@@ -1,0 +1,71 @@
+/* Barra de navegação do topo (reutilizada em todas as telas) */
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #0f2c4d;
+  padding: 0 32px;
+  height: 58px;
+  color: #ffffff;
+}
+
+/* Logo "Pezão Sound" */
+.navbar-logo {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.navbar-nota {
+  color: #ffffff;
+  margin-right: 4px;
+}
+
+.navbar-azul {
+  color: #2f9be0;
+}
+
+/* Menu do meio */
+.navbar-menu {
+  display: flex;
+  gap: 26px;
+}
+
+.navbar-item {
+  color: #aebfce;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 18px 0;
+}
+
+.navbar-item:hover {
+  color: #ffffff;
+}
+
+/* Item da pagina atual fica branco e com um traço azul embaixo */
+.navbar-item.ativo {
+  color: #ffffff;
+  border-bottom: 3px solid #2f9be0;
+}
+
+/* Lado direito: data + sair */
+.navbar-direita {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.navbar-data {
+  color: #aebfce;
+  font-size: 13px;
+}
+
+.navbar-sair {
+  color: #aebfce;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.navbar-sair:hover {
+  color: #ffffff;
+}
