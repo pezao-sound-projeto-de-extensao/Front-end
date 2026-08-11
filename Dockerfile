@@ -11,6 +11,8 @@ RUN npm run build
 FROM nginx:stable-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY env.sh /docker-entrypoint.d/40-env-config.sh
+RUN chmod +x /docker-entrypoint.d/40-env-config.sh
 
 RUN cat <<'EOF' > /etc/nginx/conf.d/default.conf
 server {
