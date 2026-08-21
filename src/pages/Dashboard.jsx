@@ -26,7 +26,7 @@ export default function Dashboard() {
     try {
       setLoading(true);
       const [alertas, itens] = await Promise.all([alertaService.listar(), itemService.listar({ size: 1000 })]);
-      const alertasOrdenados = [...alertas].sort((a, b) => a.tipo === 'zerado' && b.tipo !== 'zerado' ? -1 : a.tipo !== 'zerado' && b.tipo === 'zerado' ? 1 : 0);
+      const alertasOrdenados = [...alertas].sort((a, b) => a.tipoAlerta === 'zerado' && b.tipoAlerta !== 'zerado' ? -1 : a.tipoAlerta !== 'zerado' && b.tipoAlerta === 'zerado' ? 1 : 0);
       setProductsInAlert(alertasOrdenados);
       const itensAtivos = itens.content?.filter(i => i.ativo) || itens.filter(i => i.ativo) || [];
       const total = itensAtivos.length;
@@ -71,10 +71,10 @@ export default function Dashboard() {
         </div>
       ),
     },
-    { header: 'Produto', accessor: 'nome' },
+    { header: 'Produto', accessor: 'itemNome' },
     { header: 'Qtd atual', accessor: 'quantidadeAtual' },
     { header: 'Qtd mínima', accessor: 'quantidadeMinima' },
-    { header: 'Status', accessor: 'tipo', render: (row) => <StatusBadge status={row.tipo} /> },
+    { header: 'Status', accessor: 'tipoAlerta', render: (row) => <StatusBadge status={row.tipoAlerta} /> },
     {
       header: 'Ação', align: 'right',
       render: (row) => <Button onClick={() => { setFormData({ ...formData, productId: (row.itemId || row.id).toString() }); setShowEntryModal(true); }} variant="secondary" className="px-3 py-1.5 rounded text-xs" style={{ backgroundColor: '#eaf2fb', color: '#1565c0', borderRadius: '5px' }}>Repor</Button>,
