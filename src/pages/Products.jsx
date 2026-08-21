@@ -81,7 +81,7 @@ export default function Products() {
     if (qtd === 0) status = 'zerado';
     else if (qtd < min) status = 'baixo';
     return {
-      id: p.id, name: p.nome, category: p.categoria?.nome || '', categoryId: p.categoria?.id,
+      id: p.id, name: p.nome, category: p.categoriaNome || '', categoryId: p.categoriaId,
       unit: p.unidade ? `${p.unidade.nome} (${p.unidade.abreviacao})` : '', unitId: p.unidade?.id,
       currentStock: qtd, minStock: min,
       costPrice: p.precoCusto ? `R$ ${p.precoCusto.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
