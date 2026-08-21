@@ -58,7 +58,7 @@ export default function Movements() {
         id: m.id,
         date: m.data ? m.data.split('T')[0] : '',
         productName: m.item?.nome || '',
-        category: m.item?.categoria?.nome || '',
+        category: m.item?.categoriaNome || '',
         tipo: m.tipo,
         quantity: m.quantidade,
         stockBefore: m.estoqueAntes,
