@@ -15,7 +15,7 @@ export default function StatusBadge({ status, variants = {} }) {
   };
 
   const allVariants = { ...defaultVariants, ...variants };
-  const style = allVariants[status] || allVariants.ok;
+  const style = allVariants[status?.toLowerCase()] || allVariants.ok;
   const label = status ? status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ') : '';
 
   return (

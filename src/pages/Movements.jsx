@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { movimentacaoService } from '../services/movimentacaoService';
@@ -141,12 +141,12 @@ export default function Movements() {
     {
       header: 'Tipo', accessor: 'tipo',
       render: (row) => (
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: row.tipo === 'entrada' ? '#e6f7ef' : '#fdeaea', color: row.tipo === 'entrada' ? '#1e9e5e' : '#c0392b', fontWeight: 'bold', fontSize: '11px', borderRadius: '5px' }}>
+        <span className="px-2 py-1 rounded" style={{ backgroundColor: row.tipo === 'entrada' ? '#e3edf7' : '#fdeaea', color: row.tipo === 'entrada' ? '#1565c0' : '#c0392b', fontWeight: 'bold', fontSize: '11px', borderRadius: '5px' }}>
           {row.tipo === 'entrada' ? '+ Entrada' : '− Saída'}
         </span>
       ),
     },
-    { header: 'Quantidade', accessor: 'quantity', render: (row) => <span style={{ fontWeight: 'bold', color: row.tipo === 'entrada' ? '#1e9e5e' : '#c0392b' }}>{row.tipo === 'entrada' ? '+' : '−'}{row.quantity}</span> },
+    { header: 'Quantidade', accessor: 'quantity', render: (row) => <span style={{ fontWeight: 'bold', color: row.tipo === 'entrada' ? '#1565c0' : '#c0392b' }}>{row.tipo === 'entrada' ? '+' : '−'}{row.quantity}</span> },
     { header: 'Estoque antes', accessor: 'stockBefore' },
     { header: 'Estoque depois', accessor: 'stockAfter' },
     { header: 'Observação', accessor: 'observation', render: (row) => row.observation || '—' },
@@ -162,12 +162,47 @@ export default function Movements() {
   ];
 
   return (
-    <PageLayout title="Movimentações" actions={<>
+    <PageLayout title="Movimentações" icon={ArrowLeftRight} actions={<>
       <Button onClick={() => handleNewMovement('entrada')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Nova entrada</Button>
       <Button variant="outline" onClick={() => handleNewMovement('saida')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#e84040', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '1.5px solid #e84040' }}><Minus className="w-4 h-4" /> Nova saída</Button>
     </>}>
       {showForm && (
-        <FormPanel title={editMode ? 'Editar movimentação' : 'Nova movimentação'}>
+        <FormPanel
+          title={
+            <span className="flex items-center gap-2">
+              {editMode ? 'Editar movimentação' : 'Nova movimentação'}
+              <span className="px-2 py-0.5 rounded flex items-center gap-1" style={{ backgroundColor: formData.tipo === 'entrada' ? '#e3edf7' : '#fdeaea', color: formData.tipo === 'entrada' ? '#1565c0' : '#c0392b', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>
+                {formData.tipo === 'entrada' ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
+                {formData.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+              </span>
+            </span>
+          }
+          accentColor={formData.tipo === 'entrada' ? '#1565c0' : '#e84040'}
+        >
+          <FormField label="Tipo de movimentação">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, tipo: 'entrada' })}
+                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors"
+                style={formData.tipo === 'entrada'
+                  ? { backgroundColor: '#1565c0', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #1565c0' }
+                  : { backgroundColor: '#ffffff', color: '#1565c0', fontWeight: '500', border: '1.5px solid #bcd6ee' }}
+              >
+                <ArrowDownToLine className="w-4 h-4" /> Entrada (estoque +)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, tipo: 'saida' })}
+                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors"
+                style={formData.tipo === 'saida'
+                  ? { backgroundColor: '#e84040', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #e84040' }
+                  : { backgroundColor: '#ffffff', color: '#c0392b', fontWeight: '500', border: '1.5px solid #f5c6c6' }}
+              >
+                <ArrowUpFromLine className="w-4 h-4" /> Saída (estoque −)
+              </button>
+            </div>
+          </FormField>
           <FormField label="Produto" error={errors.itemId}>
             <FormSelect value={formData.itemId} onChange={(e) => { setFormData({ ...formData, itemId: e.target.value }); handleClearField('itemId'); }} error={errors.itemId}>
               <option value="">Selecione um produto</option>
@@ -175,24 +210,17 @@ export default function Movements() {
             </FormSelect>
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Tipo">
-              <FormSelect value={formData.tipo} onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}>
-                <option value="entrada">Entrada</option>
-                <option value="saida">Saída</option>
-              </FormSelect>
-            </FormField>
             <FormField label="Quantidade" error={errors.quantidade}>
-              <FormInput type="number" min="1" value={formData.quantidade} onChange={(e) => { setFormData({ ...formData, quantidade: e.target.value }); handleClearField('quantidade'); }} error={errors.quantidade} />
+              <FormInput type="number" min="1" value={formData.quantidade} onChange={(e) => { setFormData({ ...formData, quantidade: e.target.value }); handleClearField('quantidade'); }} error={errors.quantidade}
+                placeholder={formData.tipo === 'entrada' ? 'Quantidade a adicionar' : 'Quantidade a retirar'} />
             </FormField>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <FormField label="Data">
               <FormInput type="date" value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} />
             </FormField>
-            <FormField label="Observação">
-              <FormInput placeholder="Opcional" value={formData.observacao} onChange={(e) => setFormData({ ...formData, observacao: e.target.value })} />
-            </FormField>
           </div>
+          <FormField label="Observação">
+            <FormInput placeholder="Opcional" value={formData.observacao} onChange={(e) => setFormData({ ...formData, observacao: e.target.value })} />
+          </FormField>
           <CrudFormActions editMode={editMode} saving={saving} onCancel={handleCancel} onSave={handleSaveMovement} />
         </FormPanel>
       )}
