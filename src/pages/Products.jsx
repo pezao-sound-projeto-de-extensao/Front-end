@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, Camera, ZoomIn } from 'lucide-react';
+import { Plus, Camera, ZoomIn, Package } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
@@ -168,7 +168,7 @@ export default function Products() {
   ];
 
   return (
-    <PageLayout title="Cadastro de produtos" actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo produto</Button>}>
+    <PageLayout title="Produtos" icon={Package} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo produto</Button>}>
       {showForm && (
         <FormPanel title={editMode ? 'Editar produto' : 'Novo produto'}>
           <FormField label="Nome do produto" error={errors.nome}>

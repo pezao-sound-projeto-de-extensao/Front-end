@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Printer, FileDown } from 'lucide-react';
+import { Printer, FileDown, BarChart3 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { relatorioService } from '../services/relatorioService';
@@ -41,7 +41,7 @@ export default function Reports() {
       }
       const data = await relatorioService.buscar(params);
       setKpis(data.kpis || { totalItens: 0, itensOk: 0, itensAlerta: 0, itensZerados: 0 });
-      setCriticalProducts((data.itensCriticos || []).map((item, i) => ({ id: i, name: item.nome, currentStock: item.quantidadeAtual, minStock: item.quantidadeMinima, status: item.status })));
+      setCriticalProducts((data.itensCriticos || []).map((item, i) => ({ id: i, name: item.nome, currentStock: item.quantidadeAtual, minStock: item.quantidadeMinima, status: item.status?.toLowerCase() })));
       setPopularProducts((data.maisMovimentados || []).map(item => ({ name: item.nome, movementCount: item.totalMovimentacoes, color: '#1565c0' })));
       setMovements((data.historico?.content || data.historico || []).map((m, i) => ({ id: i, date: m.data, productName: m.itemNome, category: m.categoriaNome, type: m.tipo, quantity: m.quantidade, stockBefore: m.estoqueAntes, stockAfter: m.estoqueDepois, observation: m.observacao })));
     } catch (err) { console.error('Erro ao carregar relatório:', err); }
@@ -72,11 +72,17 @@ export default function Reports() {
     { label: 'Produtos zerados', value: kpis.itensZerados, color: '#e84040', description: 'sem estoque' },
   ];
 
+  const statusVariants = {
+    ok: { bg: '#e6f7ef', color: '#1e9e5e' },
+    baixo: { bg: '#fff0e0', color: '#f39c12' },
+    zerado: { bg: '#fdeaea', color: '#e84040' },
+  };
+
   const criticalColumns = [
     { header: 'Produto', accessor: 'name' },
     { header: 'QTD', accessor: 'currentStock' },
     { header: 'Mínimo', accessor: 'minStock' },
-    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
+    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} variants={statusVariants} /> },
   ];
 
   const movementColumns = [
@@ -86,19 +92,19 @@ export default function Reports() {
     {
       header: 'Tipo', accessor: 'type',
       render: (row) => (
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: row.type === 'entrada' ? '#e6f7ef' : '#fdeaea', color: row.type === 'entrada' ? '#1e9e5e' : '#c0392b', fontWeight: 'bold', fontSize: '11px', borderRadius: '5px' }}>
+        <span className="px-2 py-1 rounded" style={{ backgroundColor: row.type === 'entrada' ? '#e3edf7' : '#fdeaea', color: row.type === 'entrada' ? '#1565c0' : '#c0392b', fontWeight: 'bold', fontSize: '11px', borderRadius: '5px' }}>
           {row.type === 'entrada' ? '+ Entrada' : '− Saída'}
         </span>
       ),
     },
-    { header: 'Quantidade', accessor: 'quantity', render: (row) => <span style={{ fontWeight: 'bold', color: row.type === 'entrada' ? '#1e9e5e' : '#c0392b' }}>{row.type === 'entrada' ? '+' : '−'}{row.quantity}</span> },
+    { header: 'Quantidade', accessor: 'quantity', render: (row) => <span style={{ fontWeight: 'bold', color: row.type === 'entrada' ? '#1565c0' : '#c0392b' }}>{row.type === 'entrada' ? '+' : '−'}{row.quantity}</span> },
     { header: 'Estoque antes', accessor: 'stockBefore' },
     { header: 'Estoque depois', accessor: 'stockAfter' },
     { header: 'Observação', accessor: 'observation', render: (row) => row.observation || '—' },
   ];
 
   return (
-    <PageLayout title="Relatórios" actions={<>
+    <PageLayout title="Relatórios" icon={BarChart3} actions={<>
       <Button variant="outline" onClick={() => window.print()} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#1a3a55', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '1.5px solid #d0dde8' }}><Printer className="w-4 h-4" /> Imprimir</Button>
       <Button variant="outline" onClick={() => showApiSuccess('Exportação PDF iniciada!')} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#1a3a55', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '1.5px solid #d0dde8' }}><FileDown className="w-4 h-4" /> Exportar PDF</Button>
     </>}>
@@ -132,7 +138,7 @@ export default function Reports() {
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0d2e52' }}>Produtos com estoque crítico</h3>
-                <span className="px-2 py-1 rounded" style={{ backgroundColor: '#fdeaea', color: '#c0392b', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>{zeradosCount} zerados</span>
+                <span className="px-2 py-1 rounded" style={{ backgroundColor: '#fdeaea', color: '#e84040', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>{zeradosCount} zerados</span>
               </div>
               <DataTable columns={criticalColumns} data={criticalProducts} emptyMessage="Nenhum produto crítico" />
             </div>

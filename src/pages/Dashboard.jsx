@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Minus, FileText, PackagePlus } from 'lucide-react';
+import { Plus, Minus, FileText, PackagePlus, LayoutDashboard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { alertaService } from '../services/alertaService';
@@ -39,6 +39,8 @@ export default function Dashboard() {
   };
 
   useEffect(() => { carregarDashboard(); }, []);
+
+  useEffect(() => { document.title = 'Dashboard · StockFlow'; }, []);
 
   const handleConfirmEntry = async () => {
     const newErrors = { productId: !formData.productId, quantity: !formData.quantity || parseInt(formData.quantity) <= 0 };
@@ -91,6 +93,12 @@ export default function Dashboard() {
       )}
 
       <div className="max-w-7xl mx-auto p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#1565c0', color: '#ffffff', boxShadow: '0 2px 6px rgba(21,101,192,0.3)' }}>
+            <LayoutDashboard className="w-5 h-5" />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0d2137' }}>Dashboard</h2>
+        </div>
         <KPICardGrid cards={kpiCards} />
 
         <div className="mb-6">
