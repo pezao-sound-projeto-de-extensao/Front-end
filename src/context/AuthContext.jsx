@@ -3,7 +3,9 @@ import { authService } from '../services/authService';
 
 const AuthContext = createContext(null)
 
-const TOKEN_KEY = 'sf_token'
+const ACCESS_TOKEN_KEY = 'sf_access_token'
+const REFRESH_TOKEN_KEY = 'sf_refresh_token'
+const USER_KEY = 'sf_user'
 const REMEMBER_KEY = 'sf_remember'
 
 export function AuthProvider({ children }) {
@@ -12,16 +14,22 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const restoreSession = async () => {
-      const token = sessionStorage.getItem(TOKEN_KEY)
+      const accessToken = sessionStorage.getItem(ACCESS_TOKEN_KEY)
+      const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY)
+      const userData = sessionStorage.getItem(USER_KEY)
       const remember = localStorage.getItem(REMEMBER_KEY)
 
-      if (token) {
-        setUser({ token })
+      if (accessToken && refreshToken && userData) {
+        setUser({ accessToken, refreshToken, ...JSON.parse(userData) })
       } else if (remember) {
-        const savedToken = localStorage.getItem(TOKEN_KEY)
-        if (savedToken) {
-          sessionStorage.setItem(TOKEN_KEY, savedToken)
-          setUser({ token: savedToken })
+        const savedAccessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
+        const savedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+        const savedUserData = localStorage.getItem(USER_KEY)
+        if (savedAccessToken && savedRefreshToken && savedUserData) {
+          sessionStorage.setItem(ACCESS_TOKEN_KEY, savedAccessToken)
+          sessionStorage.setItem(REFRESH_TOKEN_KEY, savedRefreshToken)
+          sessionStorage.setItem(USER_KEY, savedUserData)
+          setUser({ accessToken: savedAccessToken, refreshToken: savedRefreshToken, ...JSON.parse(savedUserData) })
         }
       }
       setLoading(false)
@@ -32,34 +40,81 @@ export function AuthProvider({ children }) {
 
   async function login(email, senha, lembrar = false) {
     const data = await authService.login(email, senha)
-    const { token } = data
+    const { accessToken, refreshToken, username, usuario } = data
 
-    sessionStorage.setItem(TOKEN_KEY, token)
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+    sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+    sessionStorage.setItem(USER_KEY, JSON.stringify({ username, ...usuario }))
 
     if (lembrar) {
-      localStorage.setItem(TOKEN_KEY, token)
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+      localStorage.setItem(USER_KEY, JSON.stringify({ username, ...usuario }))
       localStorage.setItem(REMEMBER_KEY, 'true')
     } else {
-      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(ACCESS_TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
       localStorage.removeItem(REMEMBER_KEY)
     }
 
-    setUser({ token })
+    setUser({ accessToken, refreshToken, username, ...usuario })
   }
 
-  function logout() {
-    sessionStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(TOKEN_KEY)
+  async function refreshAccessToken() {
+    const currentRefreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY)
+    if (!currentRefreshToken) {
+      throw new Error('No refresh token available')
+    }
+
+    const data = await authService.refreshToken(currentRefreshToken)
+    const { accessToken, refreshToken, username, usuario } = data
+
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+    sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+    sessionStorage.setItem(USER_KEY, JSON.stringify({ username, ...usuario }))
+
+    const remember = localStorage.getItem(REMEMBER_KEY)
+    if (remember) {
+      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+      localStorage.setItem(USER_KEY, JSON.stringify({ username, ...usuario }))
+    }
+
+    setUser({ accessToken, refreshToken, username, ...usuario })
+    return accessToken
+  }
+
+  async function logout() {
+    const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY)
+    if (refreshToken) {
+      try {
+        await authService.logout(refreshToken)
+      } catch (error) {
+        console.error('Erro ao fazer logout no backend:', error)
+      }
+    }
+
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY)
+    sessionStorage.removeItem(USER_KEY)
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
     localStorage.removeItem(REMEMBER_KEY)
     setUser(null)
   }
 
-  function getToken() {
-    return user?.token || sessionStorage.getItem(TOKEN_KEY)
+  function getAccessToken() {
+    return user?.accessToken || sessionStorage.getItem(ACCESS_TOKEN_KEY)
+  }
+
+  function getRefreshToken() {
+    return user?.refreshToken || sessionStorage.getItem(REFRESH_TOKEN_KEY)
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, getToken, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, getAccessToken, getRefreshToken, refreshAccessToken, loading }}>
       {children}
     </AuthContext.Provider>
   )
