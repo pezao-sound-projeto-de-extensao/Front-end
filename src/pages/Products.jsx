@@ -36,7 +36,7 @@ export default function Products() {
   const [viewPhoto, setViewPhoto] = useState(null);
 
   const { showForm, editMode, currentItem, formData, setFormData, errors, saving, handleNew, handleEdit, handleCancel, handleSave, handleClearField } = useCrudForm({
-    initialData: { nome: '', categoriaId: '', unidadeId: '', quantidadeAtual: '', quantidadeMinima: '', precoCusto: '', precoVenda: '', photo: '' },
+    initialData: { nome: '', categoriaId: '', unidadeId: '', quantidadeAtual: '', quantidadeMinima: '', precoCusto: '', precoVenda: '' },
     validate: (data) => ({
       nome: !data.nome.trim(),
       quantidadeAtual: !data.quantidadeAtual.trim() || isNaN(parseInt(data.quantidadeAtual)),
@@ -86,27 +86,29 @@ export default function Products() {
       currentStock: qtd, minStock: min,
       costPrice: p.precoCusto ? `R$ ${p.precoCusto.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
       salePrice: p.precoVenda ? `R$ ${p.precoVenda.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
-      status, photo: p.imagens?.[0]?.url, ativo: p.ativo,
+      status, photo: p.imagem?.url, ativo: p.ativo,
       precoCustoRaw: p.precoCusto, precoVendaRaw: p.precoVenda,
     };
   };
+
+  const [deleteImage, setDeleteImage] = useState(false);
+
+  useEffect(() => {
+    if (!showForm) setDeleteImage(false);
+  }, [showForm]);
 
   const handleEditProduct = (product) => {
     handleEdit(product);
     setFormData({
       nome: product.name, categoriaId: product.categoryId || '', unidadeId: product.unitId || '',
       quantidadeAtual: product.currentStock.toString(), quantidadeMinima: product.minStock.toString(),
-      precoCusto: product.precoCustoRaw?.toString() || '', precoVenda: product.precoVendaRaw?.toString() || '', photo: '',
+      precoCusto: product.precoCustoRaw?.toString() || '', precoVenda: product.precoVendaRaw?.toString() || '',
     });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setDeleteImage(false);
   };
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setFormData(prev => ({ ...prev, photo: ev.target?.result }));
-    reader.readAsDataURL(file);
-  };
+  const existingImageUrl = editMode && currentItem?.photo && !deleteImage ? currentItem.photo : null;
 
   const handleSaveProduct = async () => {
     await handleSave((data) => ({
@@ -115,11 +117,10 @@ export default function Products() {
       precoCusto: parseFloat((data.precoCusto || '0').replace(',', '.')) || 0,
       precoVenda: parseFloat((data.precoVenda || '0').replace(',', '.')) || 0,
     }));
-    if (formData.photo && formData.photo.startsWith('data:')) {
-      const response = await fetch(formData.photo);
-      const blob = await response.blob();
-      const file = new File([blob], 'foto.jpg', { type: 'image/jpeg' });
-      await imagemProdutoService.upload(currentItem?.id, file, true);
+    if (fileInputRef.current?.files?.[0]) {
+      await imagemProdutoService.upload(currentItem?.id, fileInputRef.current.files[0]);
+    } else if (editMode && deleteImage && currentItem?.photo) {
+      await imagemProdutoService.deletar(currentItem?.id);
     }
   };
 
@@ -207,13 +208,21 @@ export default function Products() {
           </div>
           <div>
             <label className="block mb-2 uppercase" style={{ fontSize: '12px', color: '#5a82a0' }}>Foto do produto</label>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-            {formData.photo ? (
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => setFormData(prev => ({ ...prev }))} />
+            {fileInputRef.current?.files?.[0] ? (
               <div className="flex items-start gap-4">
-                <img src={formData.photo} alt="Preview" className="rounded-lg object-cover" style={{ width: '120px', height: '120px', border: '1.5px solid #d0dde8' }} />
+                <img src={URL.createObjectURL(fileInputRef.current.files[0])} alt="Preview" className="rounded-lg object-cover" style={{ width: '120px', height: '120px', border: '1.5px solid #d0dde8' }} />
                 <div className="flex flex-col gap-2 mt-1">
                   <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #d0dde8', fontSize: '12px', fontWeight: 'bold', color: '#1565c0', borderRadius: '8px' }}>Trocar foto</Button>
-                  <Button type="button" variant="outline" onClick={() => setFormData(prev => ({ ...prev, photo: '' }))} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #fdd', fontSize: '12px', fontWeight: 'bold', color: '#e84040', borderRadius: '8px' }}>Remover foto</Button>
+                  <Button type="button" variant="outline" onClick={() => { if (fileInputRef.current) fileInputRef.current.value = ''; }} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #fdd', fontSize: '12px', fontWeight: 'bold', color: '#e84040', borderRadius: '8px' }}>Remover foto</Button>
+                </div>
+              </div>
+            ) : existingImageUrl ? (
+              <div className="flex items-start gap-4">
+                <img src={existingImageUrl} alt="Preview" className="rounded-lg object-cover" style={{ width: '120px', height: '120px', border: '1.5px solid #d0dde8' }} />
+                <div className="flex flex-col gap-2 mt-1">
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #d0dde8', fontSize: '12px', fontWeight: 'bold', color: '#1565c0', borderRadius: '8px' }}>Trocar foto</Button>
+                  <Button type="button" variant="outline" onClick={() => setDeleteImage(true)} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #fdd', fontSize: '12px', fontWeight: 'bold', color: '#e84040', borderRadius: '8px' }}>Remover foto</Button>
                 </div>
               </div>
             ) : (
