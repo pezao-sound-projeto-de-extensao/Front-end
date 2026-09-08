@@ -54,13 +54,6 @@ export const imagemProdutoService = {
     return response.data;
   },
 
-  baixar: async (itemId) => {
-    const response = await api.get(`/itens/${itemId}/imagem/download`, {
-      responseType: 'blob',
-    });
-    return response.data;
-  },
-
   deletar: async (itemId) => {
     const response = await api.delete(`/itens/${itemId}/imagem`);
     return response.data;

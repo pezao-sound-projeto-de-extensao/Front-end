@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { env } from '../config';
 import { Plus, Camera, ZoomIn, Package } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -86,7 +87,7 @@ export default function Products() {
       currentStock: qtd, minStock: min,
       costPrice: p.precoCusto ? `R$ ${p.precoCusto.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
       salePrice: p.precoVenda ? `R$ ${p.precoVenda.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
-      status, photo: p.imagem?.url, ativo: p.ativo,
+      status, photo: env('VITE_API_BASE_URL') + p.imagem?.url, ativo: p.ativo,
       precoCustoRaw: p.precoCusto, precoVendaRaw: p.precoVenda,
     };
   };
