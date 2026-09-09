@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useSessionModal } from '../context/SessionModalContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/Button';
@@ -21,7 +21,7 @@ export default function SessionExpiredModal() {
     setLoading(true);
     setError('');
     try {
-      await login(email, password, false);
+      await login(email, password);
       setLoading(false);
       retry();
     } catch (err) {
