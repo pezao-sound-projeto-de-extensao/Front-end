@@ -45,12 +45,12 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const requestUrl = originalRequest?.url || '';
 
-    if (status === 401 && !requestUrl.includes('/auth/login') && !requestUrl.includes('/auth/refresh') && window.location.pathname !== '/login') {
+    if (status === 401) {
       if (originalRequest._retry) {
         sessionStorage.removeItem('sf_access_token');
         sessionStorage.removeItem('sf_refresh_token');
         sessionStorage.removeItem('sf_user');
-        if (sessionModalOpener) {
+        if (sessionModalOpener && !requestUrl.includes('/auth/refresh') && !requestUrl.includes('/auth/login')) {
           sessionModalOpener(() => {});
         }
         return Promise.reject(error);
