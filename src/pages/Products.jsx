@@ -87,7 +87,9 @@ export default function Products() {
       currentStock: qtd, minStock: min,
       costPrice: p.precoCusto ? `R$ ${p.precoCusto.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
       salePrice: p.precoVenda ? `R$ ${p.precoVenda.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
-      status, photo: env('VITE_API_BASE_URL') + p.imagem?.url, ativo: p.ativo,
+      status,
+      photo: p.imagem?.url === undefined ? null : env('VITE_API_BASE_URL') + p.imagem?.url,
+      ativo: p.ativo,
       precoCustoRaw: p.precoCusto, precoVendaRaw: p.precoVenda,
     };
   };

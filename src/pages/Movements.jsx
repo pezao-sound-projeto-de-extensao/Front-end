@@ -172,7 +172,6 @@ export default function Movements() {
             <span className="flex items-center gap-2">
               {editMode ? 'Editar movimentação' : 'Nova movimentação'}
               <span className="px-2 py-0.5 rounded flex items-center gap-1" style={{ backgroundColor: formData.tipo === 'entrada' ? '#e3edf7' : '#fdeaea', color: formData.tipo === 'entrada' ? '#1565c0' : '#c0392b', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>
-                {formData.tipo === 'entrada' ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
                 {formData.tipo === 'entrada' ? 'Entrada' : 'Saída'}
               </span>
             </span>
@@ -189,7 +188,7 @@ export default function Movements() {
                   ? { backgroundColor: '#1565c0', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #1565c0' }
                   : { backgroundColor: '#ffffff', color: '#1565c0', fontWeight: '500', border: '1.5px solid #bcd6ee' }}
               >
-                <ArrowDownToLine className="w-4 h-4" /> Entrada (estoque +)
+                Entrada
               </button>
               <button
                 type="button"
@@ -199,7 +198,7 @@ export default function Movements() {
                   ? { backgroundColor: '#e84040', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #e84040' }
                   : { backgroundColor: '#ffffff', color: '#c0392b', fontWeight: '500', border: '1.5px solid #f5c6c6' }}
               >
-                <ArrowUpFromLine className="w-4 h-4" /> Saída (estoque −)
+                Saída
               </button>
             </div>
           </FormField>

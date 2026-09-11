@@ -21,8 +21,13 @@ export const orcamentoService = {
     return response.data;
   },
 
-  deletar: async (id) => {
-    const response = await api.delete(`/orcamentos/${id}`);
+  aceitar: async (id) => {
+    const response = await api.patch(`/orcamentos/${id}/aceitar`);
+    return response.data;
+  },
+
+  rejeitar: async (id) => {
+    const response = await api.patch(`/orcamentos/${id}/rejeitar`);
     return response.data;
   },
 };
