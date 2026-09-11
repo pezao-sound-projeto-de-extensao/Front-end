@@ -7,7 +7,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -17,7 +16,7 @@ export default function Login() {
       setLoading(true);
       setError('');
       try {
-        await login(email, password, remember);
+        await login(email, password);
         navigate('/dashboard');
       } catch (err) {
         if (err.response?.status === 403) {
@@ -149,19 +148,6 @@ export default function Login() {
                 onFocus={(e) => (e.target.style.borderColor = '#1c8bc0')}
                 onBlur={(e) => (e.target.style.borderColor = '#d0dde8')}
               />
-            </div>
-
-            <div className="flex items-center gap-2" style={{ marginTop: '8px' }}>
-              <input
-                type="checkbox"
-                id="remember"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                style={{ width: '16px', height: '16px', accentColor: '#1565c0' }}
-              />
-              <label htmlFor="remember" style={{ fontSize: '13px', color: '#1a3a55', cursor: 'pointer' }}>
-                Lembrar-me
-              </label>
             </div>
 
             {error && (

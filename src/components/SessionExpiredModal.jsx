@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useSessionModal } from '../context/SessionModalContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/Button';
@@ -7,8 +7,8 @@ import PasswordInput from './PasswordInput';
 
 export default function SessionExpiredModal() {
   const { isOpen, closeModal, retry } = useSessionModal();
-  const { user } = useAuth();
-  const [email, setEmail] = useState(user?.email || '');
+  const { login } = useAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,9 +21,7 @@ export default function SessionExpiredModal() {
     setLoading(true);
     setError('');
     try {
-      const { authService } = await import('../services/authService');
-      const data = await authService.login(email, password);
-      sessionStorage.setItem('sf_token', data.token);
+      await login(email, password);
       setLoading(false);
       retry();
     } catch (err) {

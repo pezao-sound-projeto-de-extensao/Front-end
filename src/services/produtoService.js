@@ -45,28 +45,17 @@ export const unidadeService = {
 };
 
 export const imagemProdutoService = {
-  upload: async (itemId, arquivo, principal = false) => {
+  upload: async (itemId, arquivo) => {
     const formData = new FormData();
     formData.append('arquivo', arquivo);
-    formData.append('principal', principal);
-    const response = await api.post(`/itens/${itemId}/imagens`, formData, {
+    const response = await api.post(`/itens/${itemId}/imagem`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;
   },
 
-  listar: async (itemId) => {
-    const response = await api.get(`/itens/${itemId}/imagens`);
-    return response.data;
-  },
-
-  deletar: async (itemId, imagemId) => {
-    const response = await api.delete(`/itens/${itemId}/imagens/${imagemId}`);
-    return response.data;
-  },
-
-  definirPrincipal: async (itemId, imagemId) => {
-    const response = await api.patch(`/itens/${itemId}/imagens/${imagemId}/principal`);
+  deletar: async (itemId) => {
+    const response = await api.delete(`/itens/${itemId}/imagem`);
     return response.data;
   },
 };

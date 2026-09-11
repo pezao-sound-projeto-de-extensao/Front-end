@@ -1,68 +1,48 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { api } from '../services/api';
 
-const AuthContext = createContext(null)
-
-const TOKEN_KEY = 'sf_token'
-const REMEMBER_KEY = 'sf_remember'
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const restoreSession = async () => {
-      const token = sessionStorage.getItem(TOKEN_KEY)
-      const remember = localStorage.getItem(REMEMBER_KEY)
-
-      if (token) {
-        setUser({ token })
-      } else if (remember) {
-        const savedToken = localStorage.getItem(TOKEN_KEY)
-        if (savedToken) {
-          sessionStorage.setItem(TOKEN_KEY, savedToken)
-          setUser({ token: savedToken })
-        }
+      try {
+        const response = await api.get('/auth/me');
+        setUser(response.data);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false)
-    }
+    };
 
-    restoreSession()
-  }, [])
+    restoreSession();
+  }, []);
 
-  async function login(email, senha, lembrar = false) {
-    const data = await authService.login(email, senha)
-    const { token } = data
-
-    sessionStorage.setItem(TOKEN_KEY, token)
-
-    if (lembrar) {
-      localStorage.setItem(TOKEN_KEY, token)
-      localStorage.setItem(REMEMBER_KEY, 'true')
-    } else {
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(REMEMBER_KEY)
-    }
-
-    setUser({ token })
+  async function login(email, senha) {
+    const data = await authService.login(email, senha);
+    const { username, usuario } = data;
+    setUser({ username, ...usuario });
   }
 
-  function logout() {
-    sessionStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(REMEMBER_KEY)
-    setUser(null)
-  }
-
-  function getToken() {
-    return user?.token || sessionStorage.getItem(TOKEN_KEY)
+  async function logout() {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Erro ao fazer logout no backend:', error);
+    }
+    setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, getToken, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
-export const useAuth = () => useContext(AuthContext)
+export const useAuth = () => useContext(AuthContext);

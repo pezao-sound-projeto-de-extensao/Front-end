@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, FileText } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { orcamentoService } from '../services/orcamentoService';
@@ -120,7 +120,7 @@ export default function Budgets() {
   ];
 
   return (
-    <PageLayout title="Orçamentos" actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo orçamento</Button>}>
+    <PageLayout title="Orçamentos" icon={FileText} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo orçamento</Button>}>
       {showForm && (
         <FormPanel title={editMode ? 'Editar orçamento' : 'Novo orçamento'}>
           <div className="grid grid-cols-2 gap-4">

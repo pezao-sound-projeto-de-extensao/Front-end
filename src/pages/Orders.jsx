@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { pedidoService } from '../services/pedidoService';
@@ -124,7 +124,7 @@ export default function Orders() {
   ];
 
   return (
-    <PageLayout title="Encomendas / Pedidos de Compra" actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Nova encomenda</Button>}>
+    <PageLayout title="Encomendas" icon={ShoppingBag} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Nova encomenda</Button>}>
       {showForm && (
         <FormPanel title={editMode ? 'Editar encomenda' : 'Nova encomenda'}>
           <div className="grid grid-cols-2 gap-4">
