@@ -1,6 +1,14 @@
 import LoadingSpinner from './LoadingSpinner';
 
-export default function DataTable({ columns, data, emptyMessage = 'Nenhum registro encontrado', loading, rowKey = 'id', onRowClick }) {
+export default function DataTable({ 
+  columns, 
+  data, 
+  emptyMessage = 'Nenhum registro encontrado', 
+  loading, 
+  rowKey = 'id', 
+  onRowClick,
+  ativoAccessor,
+}) {
   if (loading) {
     return (
       <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
@@ -8,6 +16,8 @@ export default function DataTable({ columns, data, emptyMessage = 'Nenhum regist
       </div>
     );
   }
+
+  const isRowInactive = ativoAccessor ? (row) => row[ativoAccessor] === false : () => false;
 
   return (
     <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
@@ -28,20 +38,26 @@ export default function DataTable({ columns, data, emptyMessage = 'Nenhum regist
                 <td colSpan={columns.length} className="py-8 text-center" style={{ color: '#8aabb8' }}>{emptyMessage}</td>
               </tr>
             ) : (
-              data.map((row) => (
-                <tr
-                  key={row[rowKey]}
-                  className={`hover:bg-[#eaf2fb] transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
-                  style={{ borderTop: '1px solid #d0dde8' }}
-                  onClick={() => onRowClick?.(row)}
-                >
-                  {columns.map((col, i) => (
-                    <td key={i} className="py-3 px-4" style={{ fontSize: '13px', color: '#1a3a55', fontWeight: col.bold ? 'bold' : undefined, textAlign: col.align }}>
-                      {col.render ? col.render(row) : row[col.accessor]}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              data.map((row) => {
+                const inactive = isRowInactive(row);
+                return (
+                  <tr
+                    key={row[rowKey]}
+                    className={`hover:bg-[#eaf2fb] transition-colors ${onRowClick ? 'cursor-pointer' : ''} ${inactive ? 'opacity-50' : ''}`}
+                    style={{ 
+                      borderTop: '1px solid #d0dde8',
+                      textDecoration: inactive ? 'line-through' : 'none',
+                    }}
+                    onClick={() => onRowClick?.(row)}
+                  >
+                    {columns.map((col, i) => (
+                      <td key={i} className="py-3 px-4" style={{ fontSize: '13px', color: '#1a3a55', fontWeight: col.bold ? 'bold' : undefined, textAlign: col.align }}>
+                        {col.render ? col.render(row) : row[col.accessor]}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

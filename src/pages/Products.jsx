@@ -31,6 +31,7 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todas as categorias');
   const [statusFilter, setStatusFilter] = useState(filterByAlert ? 'Em alerta' : 'Todos os status');
+  const [ativoFilter, setAtivoFilter] = useState('Ativos');
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
@@ -136,7 +137,16 @@ export default function Products() {
     setDeleteModal({ open: false, id: null });
   };
 
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesAtivo = ativoFilter === 'Todos' || (ativoFilter === 'Ativos' ? p.ativo : !p.ativo);
+    return matchesSearch && matchesAtivo;
+  });
+
+  const ativoVariants = {
+    true: { bg: '#e6f7ef', color: '#1e9e5e' },
+    false: { bg: '#fdeaea', color: '#c0392b' },
+  };
 
   const columns = [
     {
@@ -159,7 +169,8 @@ export default function Products() {
     { header: 'Qtd atual', accessor: 'currentStock' },
     { header: 'Qtd mínima', accessor: 'minStock' },
     { header: 'Preço venda', accessor: 'salePrice' },
-    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
+    { header: 'Status Estoque', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
+    { header: 'Ativo', accessor: 'ativo', render: (row) => <StatusBadge status={row.ativo ? 'ativo' : 'inativo'} variants={ativoVariants} /> },
     {
       header: 'Ações', align: 'right',
       render: (row) => (
@@ -244,9 +255,10 @@ export default function Products() {
         <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar produto pelo nome..." />
         <FilterSelect value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todas as categorias', label: 'Todas as categorias' }, ...categorias.map(c => ({ value: c.nome, label: c.nome }))]} />
         <FilterSelect value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todos os status', label: 'Todos os status' }, { value: 'Em alerta', label: 'Em alerta' }]} />
+        <FilterSelect value={ativoFilter} onChange={(e) => { setAtivoFilter(e.target.value); setCurrentPage(0); }} width="140px" options={[{ value: 'Ativos', label: 'Ativos' }, { value: 'Inativos', label: 'Inativos' }, { value: 'Todos', label: 'Todos' }]} />
       </div>
 
-      <DataTable columns={columns} data={filteredProducts} loading={loading} emptyMessage="Nenhum produto encontrado" />
+      <DataTable columns={columns} data={filteredProducts} loading={loading} emptyMessage="Nenhum produto encontrado" ativoAccessor="ativo" />
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
       <PhotoViewerModal src={viewPhoto} onClose={() => setViewPhoto(null)} />
