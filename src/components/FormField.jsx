@@ -45,3 +45,23 @@ export function FormSelect({ error, children, ...props }) {
     </select>
   );
 }
+
+export function FormTextarea({ error, ...props }) {
+  return (
+    <textarea
+      {...props}
+      className={`w-full rounded-lg ${props.className || ''}`}
+      style={{
+        backgroundColor: '#ffffff',
+        border: error ? '1.5px solid #e84040' : '1.5px solid #d0dde8',
+        borderRadius: '8px',
+        padding: '10px 14px',
+        fontSize: '14px',
+        color: '#1a3a55',
+        resize: 'vertical',
+        minHeight: '80px',
+        ...props.style,
+      }}
+    />
+  );
+}
