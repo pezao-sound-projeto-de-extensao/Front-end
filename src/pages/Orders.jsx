@@ -191,7 +191,7 @@ export default function Orders() {
         <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[{ value: 'Todos', label: 'Todos' }, { value: 'pendente', label: 'Pendente' }, { value: 'em_transito', label: 'Em trânsito' }, { value: 'entregue', label: 'Entregue' }, { value: 'cancelado', label: 'Cancelado' }]} />
       </div>
 
-      <DataTable columns={columns} data={filteredOrders} loading={loading} emptyMessage="Nenhum pedido encontrado" />
+      <DataTable columns={columns} data={filteredOrders} loading={loading} emptyMessage="Nenhum pedido encontrado" statusAccessor="status" />
 
       <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Excluir pedido" message="Tem certeza que deseja excluir este pedido?" confirmLabel="Excluir" />
     </PageLayout>

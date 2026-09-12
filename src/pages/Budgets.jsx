@@ -589,7 +589,7 @@ export default function Budgets() {
         <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={statusOptions} />
       </div>
 
-      <DataTable columns={columns} data={filteredBudgets} loading={loading} emptyMessage="Nenhum orçamento encontrado" />
+      <DataTable columns={columns} data={filteredBudgets} loading={loading} emptyMessage="Nenhum orçamento encontrado" statusAccessor="status" />
 
       <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Rejeitar orçamento" message="Tem certeza que deseja rejeitar este orçamento? (Exclusão não disponível, será marcado como rejeitado)" confirmLabel="Rejeitar" />
     </PageLayout>

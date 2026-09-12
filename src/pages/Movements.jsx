@@ -229,7 +229,7 @@ export default function Movements() {
         <FilterSelect value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(0); }} width="140px" options={[{ value: 'Todos', label: 'Todos' }, { value: 'entrada', label: 'Entradas' }, { value: 'saida', label: 'Saídas' }]} />
       </div>
 
-      <DataTable columns={columns} data={movements} loading={loading} emptyMessage="Nenhuma movimentação encontrada" />
+      <DataTable columns={columns} data={movements} loading={loading} emptyMessage="Nenhuma movimentação encontrada" statusAccessor="tipo" />
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
       <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Excluir movimentação" message="Tem certeza que deseja excluir esta movimentação? O estoque será revertido." confirmLabel="Excluir" />

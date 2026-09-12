@@ -25,7 +25,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('Todos');
-  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [statusFilter, setStatusFilter] = useState('ativo');
 
   const userForm = useCrudForm({
     initialData: { name: '', email: '', cargoId: '' },
@@ -261,10 +261,10 @@ export default function Users() {
           <div className="flex gap-3 mb-4">
             <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nome ou e-mail..." />
             <FilterSelect value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} width="160px" options={[{ value: 'Todos', label: 'Todos os perfis' }, ...cargos.map(c => ({ value: c.nome, label: c.nome }))]} />
-            <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} width="140px" options={[{ value: 'Todos', label: 'Todos' }, { value: 'ativo', label: 'Ativo' }, { value: 'inativo', label: 'Inativo' }]} />
+            <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} width="140px" options={[{ value: 'ativo', label: 'Ativo' }, { value: 'inativo', label: 'Inativo' }, { value: 'Todos', label: 'Todos' }]} />
           </div>
 
-          <DataTable columns={userColumns} data={filteredUsers} loading={loading} emptyMessage="Nenhum usuário encontrado" />
+          <DataTable columns={userColumns} data={filteredUsers} loading={loading} emptyMessage="Nenhum usuário encontrado" ativoAccessor="status" />
         </>
       )}
 
