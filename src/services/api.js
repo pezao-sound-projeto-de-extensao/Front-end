@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from '../config';
+import { showApiError } from '../lib/apiError';
 
 const apiUrl = env('VITE_API_BASE_URL');
 
@@ -17,6 +18,10 @@ api.interceptors.response.use(
 
     if (status === 401 && !requestUrl.includes('/auth/login') && !requestUrl.includes('/auth/refresh') && window.location.pathname !== '/login') {
       window.location.href = '/login';
+    }
+
+    if (status === 403) {
+      showApiError(error);
     }
 
     return Promise.reject(error);

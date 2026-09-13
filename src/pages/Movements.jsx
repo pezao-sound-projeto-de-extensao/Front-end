@@ -14,9 +14,15 @@ import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDate } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
 
-const MOVEMENT_FIELDS = { itemId: 'Produto', quantidade: 'Quantidade' };
+const MOVEMENT_FIELDS = { 
+  itemId: 'Produto', 
+  quantidade: 'Quantidade', 
+  tipo: 'Tipo', 
+  data: 'Data', 
+  observacao: 'Observação' 
+};
 
 const initialFormData = {
   itemId: '',
@@ -130,7 +136,7 @@ export default function Movements() {
       await movimentacaoService.deletar(deleteModal.id);
       await loadMovements();
       showApiSuccess('Movimentação excluída com sucesso!');
-    } catch (error) { showApiError(error); }
+    } catch (error) { showApiError(error, MOVEMENT_FIELDS); }
     setDeleteModal({ open: false, id: null });
   };
 

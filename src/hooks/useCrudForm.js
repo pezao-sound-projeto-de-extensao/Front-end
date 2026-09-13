@@ -44,15 +44,17 @@ export default function useCrudForm({ initialData, validate, service, loadData, 
     setSaving(true);
     try {
       const payload = mapToPayload ? mapToPayload(formData) : formData;
+      let createdItem = null;
       if (editMode && currentItem) {
         await service.atualizar(currentItem.id, payload);
       } else {
-        await service.criar(payload);
+        createdItem = await service.criar(payload);
       }
       await loadData();
       handleCancel();
       showApiSuccess(editMode ? 'Item atualizado com sucesso!' : 'Item cadastrado com sucesso!');
       onSuccess?.();
+      return createdItem;
     } catch (err) {
       const { fieldErrors } = parseApiError(err);
       if (fieldErrors) {

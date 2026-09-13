@@ -15,7 +15,18 @@ import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDate, formatCurrency } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+
+const BUDGET_FIELDS = {
+  clienteId: 'Cliente',
+  'clienteNovo.nome': 'Nome do cliente',
+  'clienteNovo.telefone': 'Telefone do cliente',
+  observacao: 'Observação',
+  'itens.itemId': 'Produto',
+  'itens.descricao': 'Descrição do item',
+  'itens.quantidade': 'Quantidade',
+  'itens.precoUnitario': 'Preço unitário',
+};
 
 const initialFormData = {
   clienteId: '',
@@ -361,7 +372,7 @@ export default function Budgets() {
         })),
       };
       return payload;
-    });
+    }, BUDGET_FIELDS);
   };
 
   const handleAceitar = async (id) => {
@@ -371,7 +382,7 @@ export default function Budgets() {
       showApiSuccess('Orçamento aceito com sucesso! Encomendas geradas.');
       await loadData();
     } catch (err) {
-      showApiError(err);
+      showApiError(err, BUDGET_FIELDS);
     }
   };
 
@@ -382,7 +393,7 @@ export default function Budgets() {
       showApiSuccess('Orçamento rejeitado com sucesso!');
       await loadData();
     } catch (err) {
-      showApiError(err);
+      showApiError(err, BUDGET_FIELDS);
     }
   };
 
@@ -392,7 +403,7 @@ export default function Budgets() {
       await loadData();
       showApiSuccess('Orçamento rejeitado (exclusão não disponível, marcado como rejeitado)!');
     } catch (err) {
-      showApiError(err);
+      showApiError(err, BUDGET_FIELDS);
     }
     setDeleteModal({ open: false, id: null });
   };

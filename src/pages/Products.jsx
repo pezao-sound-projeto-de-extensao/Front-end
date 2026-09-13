@@ -17,7 +17,17 @@ import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import PhotoViewerModal from '../components/PhotoViewerModal';
 import useCrudForm from '../hooks/useCrudForm';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+
+const PRODUCT_FIELDS = {
+  nome: 'Nome',
+  categoriaId: 'Categoria',
+  unidadeId: 'Unidade',
+  quantidadeAtual: 'Quantidade atual',
+  quantidadeMinima: 'Quantidade mínima',
+  precoCusto: 'Preço de custo',
+  precoVenda: 'Preço de venda',
+};
 
 export default function Products() {
   const location = useLocation();
@@ -115,14 +125,17 @@ export default function Products() {
   const existingImageUrl = editMode && currentItem?.photo && !deleteImage ? currentItem.photo : null;
 
   const handleSaveProduct = async () => {
-    await handleSave((data) => ({
+    const createdItem = await handleSave((data) => ({
       nome: data.nome.trim(), categoriaId: parseInt(data.categoriaId), unidadeId: parseInt(data.unidadeId),
       quantidadeAtual: parseInt(data.quantidadeAtual) || 0, quantidadeMinima: parseInt(data.quantidadeMinima) || 0,
       precoCusto: parseFloat((data.precoCusto || '0').replace(',', '.')) || 0,
       precoVenda: parseFloat((data.precoVenda || '0').replace(',', '.')) || 0,
     }));
     if (fileInputRef.current?.files?.[0]) {
-      await imagemProdutoService.upload(currentItem?.id, fileInputRef.current.files[0]);
+      const targetId = createdItem?.id || currentItem?.id;
+      if (targetId) {
+        await imagemProdutoService.upload(targetId, fileInputRef.current.files[0]);
+      }
     } else if (editMode && deleteImage && currentItem?.photo) {
       await imagemProdutoService.deletar(currentItem?.id);
     }
@@ -133,7 +146,7 @@ export default function Products() {
       await itemService.inativar(deleteModal.id);
       await loadProducts();
       showApiSuccess('Produto inativado com sucesso!');
-    } catch (err) { showApiError(err); }
+    } catch (err) { showApiError(err, PRODUCT_FIELDS); }
     setDeleteModal({ open: false, id: null });
   };
 

@@ -14,7 +14,22 @@ import FormField, { FormInput, FormSelect } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDateTime } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+
+const USER_FIELDS = {
+  nome: 'Nome',
+  email: 'E-mail',
+  cargo_id: 'Cargo',
+  cargoId: 'Cargo',
+  senha: 'Senha',
+  ativo: 'Status',
+};
+
+const CARGO_FIELDS = {
+  nome: 'Nome',
+  descricao: 'Descrição',
+  permissoes: 'Permissões',
+};
 
 export default function Users() {
   const [activeTab, setActiveTab] = useState('usuarios');
@@ -92,7 +107,7 @@ export default function Users() {
       await loadData();
       showApiSuccess('Status do usuário atualizado!');
     } catch (err) {
-      showApiError(err);
+      showApiError(err, USER_FIELDS);
     }
   };
 
@@ -101,7 +116,7 @@ export default function Users() {
       nome: data.name,
       email: data.email,
       cargo_id: parseInt(data.cargoId),
-    }));
+    }), USER_FIELDS);
   };
 
   const handleSaveNewCargo = () => {
@@ -109,7 +124,7 @@ export default function Users() {
       nome: data.nome,
       descricao: data.descricao,
       permissoes: data.permissoes,
-    }));
+    }), CARGO_FIELDS);
   };
 
   const handleTogglePermissao = (nome) => {

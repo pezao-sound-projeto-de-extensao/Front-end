@@ -14,7 +14,17 @@ import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDate, formatCurrency } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+
+const ORDER_FIELDS = {
+  supplierName: 'Fornecedor',
+  supplierContact: 'Contato',
+  status: 'Status',
+  date: 'Data do pedido',
+  expectedDate: 'Previsão de entrega',
+  'items.productId': 'Produto',
+  'items.quantity': 'Quantidade',
+};
 
 const initialFormData = {
   supplierName: '',
@@ -86,7 +96,7 @@ export default function Orders() {
       data: data.date,
       dataPrevisao: data.expectedDate,
       itens: data.items.map(item => ({ itemId: parseInt(item.productId), quantidade: item.quantity })),
-    }));
+    }), ORDER_FIELDS);
   };
 
   const confirmDelete = async () => {
@@ -94,7 +104,7 @@ export default function Orders() {
       await pedidoService.deletar(deleteModal.id);
       await loadData();
       showApiSuccess('Pedido excluído com sucesso!');
-    } catch (err) { showApiError(err); }
+    } catch (err) { showApiError(err, ORDER_FIELDS); }
     setDeleteModal({ open: false, id: null });
   };
 
