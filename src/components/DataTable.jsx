@@ -11,7 +11,7 @@ export default function DataTable({
 }) {
   if (loading) {
     return (
-      <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
+      <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
         <LoadingSpinner message="Carregando..." />
       </div>
     );
@@ -20,13 +20,13 @@ export default function DataTable({
   const isRowInactive = ativoAccessor ? (row) => row[ativoAccessor] === false : () => false;
 
   return (
-    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
+    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr style={{ backgroundColor: '#0d2137' }}>
+            <tr style={{ backgroundColor: 'var(--bg-input)' }}>
               {columns.map((col, i) => (
-                <th key={i} className={`${col.align === 'right' ? 'text-right' : 'text-left'} py-3 px-4 uppercase`} style={{ fontSize: '11px', color: '#ffffff', fontWeight: '500', width: col.width }}>
+                <th key={i} className={`${col.align === 'right' ? 'text-right' : 'text-left'} py-3 px-4 uppercase`} style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600', width: col.width }}>
                   {col.header}
                 </th>
               ))}
@@ -35,7 +35,7 @@ export default function DataTable({
           <tbody>
             {data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="py-8 text-center" style={{ color: '#8aabb8' }}>{emptyMessage}</td>
+                <td colSpan={columns.length} className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>{emptyMessage}</td>
               </tr>
             ) : (
               data.map((row) => {
@@ -43,15 +43,15 @@ export default function DataTable({
                 return (
                   <tr
                     key={row[rowKey]}
-                    className={`hover:bg-[#eaf2fb] transition-colors ${onRowClick ? 'cursor-pointer' : ''} ${inactive ? 'opacity-50' : ''}`}
+                    className={`hover:bg-[var(--bg-input)] transition-colors ${onRowClick ? 'cursor-pointer' : ''} ${inactive ? 'opacity-50' : ''}`}
                     style={{ 
-                      borderTop: '1px solid #d0dde8',
+                      borderTop: '1px solid var(--border-subtle)',
                       textDecoration: inactive ? 'line-through' : 'none',
                     }}
                     onClick={() => onRowClick?.(row)}
                   >
                     {columns.map((col, i) => (
-                      <td key={i} className="py-3 px-4" style={{ fontSize: '13px', color: '#1a3a55', fontWeight: col.bold ? 'bold' : undefined, textAlign: col.align }}>
+                      <td key={i} className="py-3 px-4" style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: col.bold ? 'bold' : undefined, textAlign: col.align }}>
                         {col.render ? col.render(row) : row[col.accessor]}
                       </td>
                     ))}

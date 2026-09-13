@@ -226,9 +226,9 @@ export default function Users() {
       icon={UsersIcon}
       actions={
         activeTab === 'usuarios' ? (
-          <Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo usuário</Button>
+          <Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Novo usuário</Button>
         ) : (
-          <Button onClick={handleNewCargo} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo cargo</Button>
+          <Button onClick={handleNewCargo} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Novo cargo</Button>
         )
       }
     >
@@ -273,7 +273,7 @@ export default function Users() {
             </FormPanel>
           )}
 
-          <div className="flex gap-3 mb-4">
+          <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
             <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nome ou e-mail..." />
             <FilterSelect value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} width="160px" options={[{ value: 'Todos', label: 'Todos os perfis' }, ...cargos.map(c => ({ value: c.nome, label: c.nome }))]} />
             <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} width="140px" options={[{ value: 'ativo', label: 'Ativo' }, { value: 'inativo', label: 'Inativo' }, { value: 'Todos', label: 'Todos' }]} />
@@ -296,7 +296,7 @@ export default function Users() {
                 </FormField>
               </div>
               <FormField label="Permissões" error={cargoErrors.permissoes}>
-                <div className="grid grid-cols-2 gap-2 p-4 rounded-lg" style={{ backgroundColor: '#ffffff', border: cargoErrors.permissoes ? '1px solid #e84040' : '1px solid #d0dde8' }}>
+                <div className="grid grid-cols-2 gap-2 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: cargoErrors.permissoes ? '1px solid #e84040' : '1px solid var(--border-subtle)' }}>
                   {permissoes.map(permissao => (
                     <label key={permissao.nome} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: '13px', color: '#0d2137' }}>
                       <input
@@ -318,7 +318,7 @@ export default function Users() {
             </FormPanel>
           )}
 
-          <div className="flex gap-3 mb-4">
+          <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
             <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por cargo..." />
           </div>
 

@@ -105,10 +105,10 @@ export default function Reports() {
 
   return (
     <PageLayout title="Relatórios" icon={BarChart3} actions={<>
-      <Button variant="outline" onClick={() => window.print()} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#1a3a55', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '1.5px solid #d0dde8' }}><Printer className="w-4 h-4" /> Imprimir</Button>
-      <Button variant="outline" onClick={() => showApiSuccess('Exportação PDF iniciada!')} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#1a3a55', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '1.5px solid #d0dde8' }}><FileDown className="w-4 h-4" /> Exportar PDF</Button>
+      <Button variant="outline" onClick={() => window.print()} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><Printer className="w-4 h-4" /> Imprimir</Button>
+      <Button variant="outline" onClick={() => showApiSuccess('Exportação PDF iniciada!')} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><FileDown className="w-4 h-4" /> Exportar PDF</Button>
     </>}>
-      <div className="p-6 mb-6 rounded-lg" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
+      <div className="p-6 mb-6 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-panel)' }}>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
           <FormField label="Período">
             <FormSelect value={period} onChange={(e) => setPeriod(e.target.value)}>
@@ -126,7 +126,7 @@ export default function Reports() {
               {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
             </FormSelect>
           </FormField>
-          <Button onClick={loadReport} className="px-5 py-2.5 rounded-lg" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}>Aplicar</Button>
+          <Button onClick={loadReport} className="px-5 py-2.5 rounded-lg" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px' }}>Aplicar</Button>
         </div>
       </div>
 
@@ -137,17 +137,17 @@ export default function Reports() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0d2e52' }}>Produtos com estoque crítico</h3>
+                <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Produtos com estoque crítico</h3>
                 <span className="px-2 py-1 rounded" style={{ backgroundColor: '#fdeaea', color: '#e84040', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>{zeradosCount} zerados</span>
               </div>
               <DataTable columns={criticalColumns} data={criticalProducts} emptyMessage="Nenhum produto crítico" />
             </div>
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0d2e52' }}>Produtos mais movimentados</h3>
-                <span style={{ fontSize: '11px', color: '#6a92b0' }}>este mês</span>
+                <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Produtos mais movimentados</h3>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>este mês</span>
               </div>
-              <div className="p-5 rounded-lg" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
+              <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
                 <div className="space-y-4">
                   {popularProducts.map((product, index) => (
                     <div key={index}>
@@ -155,7 +155,7 @@ export default function Reports() {
                         <span style={{ fontSize: '13px', color: '#1a3a55', fontWeight: '500' }}>{product.name}</span>
                         <span style={{ fontSize: '13px', color: '#1a3a55', fontWeight: 'bold' }}>{product.movementCount}</span>
                       </div>
-                      <div className="w-full rounded-full overflow-hidden" style={{ backgroundColor: '#d0dde8', height: '8px' }}>
+                      <div className="w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-subtle)', height: '8px' }}>
                         <div className="h-full rounded-full transition-all" style={{ backgroundColor: product.color, width: `${(product.movementCount / maxMovements) * 100}%` }} />
                       </div>
                     </div>
@@ -166,8 +166,8 @@ export default function Reports() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div className="p-5 rounded-lg" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0d2e52', marginBottom: '16px' }}>Movimentações por tipo</h3>
+            <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px' }}>Movimentações por tipo</h3>
               <div style={{ width: '100%', height: '200px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -179,8 +179,8 @@ export default function Reports() {
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="p-5 rounded-lg" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dde8', borderRadius: '10px' }}>
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0d2e52', marginBottom: '16px' }}>Movimentações por categoria</h3>
+            <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px' }}>Movimentações por categoria</h3>
               <div style={{ width: '100%', height: '200px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={categories.slice(1).map(cat => ({ name: cat, movimentações: movements.filter(m => m.category === cat).length }))}>
@@ -194,7 +194,7 @@ export default function Reports() {
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 style={{ fontSize: '13px', fontWeight: 'bold', color: '#0d2e52' }}>Histórico completo de movimentações no período</h3>
+              <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Histórico completo de movimentações no período</h3>
             </div>
             <DataTable columns={movementColumns} data={movements} emptyMessage="Nenhuma movimentação no período" />
           </div>

@@ -6,7 +6,7 @@ export default function PageLayout({ title, icon: Icon, actions, children }) {
   }, [title]);
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: '#e8edf3' }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg-page)' }}>
       <div className="max-w-7xl mx-auto p-6">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 mb-6">
           <div className="flex items-center gap-3 min-w-0">

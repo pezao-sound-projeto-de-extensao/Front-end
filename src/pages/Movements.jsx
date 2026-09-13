@@ -169,8 +169,8 @@ export default function Movements() {
 
   return (
     <PageLayout title="Movimentações" icon={ArrowLeftRight} actions={<>
-      <Button onClick={() => handleNewMovement('entrada')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Nova entrada</Button>
-      <Button variant="outline" onClick={() => handleNewMovement('saida')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#e84040', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '1.5px solid #e84040' }}><Minus className="w-4 h-4" /> Nova saída</Button>
+      <Button onClick={() => handleNewMovement('entrada')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Nova entrada</Button>
+      <Button variant="outline" onClick={() => handleNewMovement('saida')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#e84040', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid #e84040', boxShadow: 'var(--shadow-card)' }}><Minus className="w-4 h-4" /> Nova saída</Button>
     </>}>
       {showForm && (
         <FormPanel
@@ -230,7 +230,7 @@ export default function Movements() {
         </FormPanel>
       )}
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
         <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar por produto..." />
         <FilterSelect value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(0); }} width="140px" options={[{ value: 'Todos', label: 'Todos' }, { value: 'entrada', label: 'Entradas' }, { value: 'saida', label: 'Saídas' }]} />
       </div>

@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { categoriaService, unidadeService, imagemProdutoService } from '../services/produtoService';
+import { movimentacaoService } from '../services/movimentacaoService';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
@@ -131,6 +132,22 @@ export default function Products() {
       precoCusto: parseFloat((data.precoCusto || '0').replace(',', '.')) || 0,
       precoVenda: parseFloat((data.precoVenda || '0').replace(',', '.')) || 0,
     }));
+    
+    // Registrar entrada inicial se for um novo produto com quantidade > 0
+    if (!editMode && createdItem?.id && parseInt(formData.quantidadeAtual) > 0) {
+      try {
+        await movimentacaoService.registrar({
+          itemId: createdItem.id,
+          tipo: 'entrada',
+          quantidade: parseInt(formData.quantidadeAtual),
+          data: new Date().toISOString().split('T')[0],
+          observacao: 'Estoque inicial do cadastro do produto'
+        });
+      } catch (err) {
+        console.error('Erro ao registrar entrada inicial:', err);
+      }
+    }
+
     if (fileInputRef.current?.files?.[0]) {
       const targetId = createdItem?.id || currentItem?.id;
       if (targetId) {
@@ -196,7 +213,7 @@ export default function Products() {
   ];
 
   return (
-    <PageLayout title="Produtos" icon={Package} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo produto</Button>}>
+    <PageLayout title="Produtos" icon={Package} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Novo produto</Button>}>
       {showForm && (
         <FormPanel title={editMode ? 'Editar produto' : 'Novo produto'}>
           <FormField label="Nome do produto" error={errors.nome}>
@@ -264,7 +281,7 @@ export default function Products() {
         </FormPanel>
       )}
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
         <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar produto pelo nome..." />
         <FilterSelect value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todas as categorias', label: 'Todas as categorias' }, ...categorias.map(c => ({ value: c.nome, label: c.nome }))]} />
         <FilterSelect value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todos os status', label: 'Todos os status' }, { value: 'Em alerta', label: 'Em alerta' }]} />

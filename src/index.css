@@ -5,9 +5,21 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg-page: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --border-subtle: #e2e8f0;
+  --text-primary: #0d2137;
+  --text-secondary: #475569;
+  --shadow-card: 0 1px 2px rgba(13,33,55,0.06), 0 1px 3px rgba(13,33,55,0.08);
+  --shadow-card-hover: 0 4px 8px rgba(13,33,55,0.10), 0 2px 4px rgba(13,33,55,0.06);
+  --shadow-panel: 0 2px 6px rgba(13,33,55,0.06);
+}
+
 body {
   margin: 0;
-  background-color: #e8edf3;
+  background-color: var(--bg-page);
   font-family: 'Segoe UI', Arial, sans-serif;
-  color: #0d2137;
+  color: var(--text-primary);
 }
