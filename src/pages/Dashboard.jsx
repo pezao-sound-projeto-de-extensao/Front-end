@@ -10,7 +10,8 @@ import StatusBadge from '../components/StatusBadge';
 import KPICardGrid from '../components/KPICardGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
 import FormField, { FormInput, FormSelect } from '../components/FormField';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+import { env } from '../config';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -27,8 +28,16 @@ export default function Dashboard() {
       setLoading(true);
       const [alertas, itens] = await Promise.all([alertaService.listar(), itemService.listar({ size: 1000 })]);
       const alertasOrdenados = [...alertas].sort((a, b) => a.tipoAlerta === 'zerado' && b.tipoAlerta !== 'zerado' ? -1 : a.tipoAlerta !== 'zerado' && b.tipoAlerta === 'zerado' ? 1 : 0);
-      setProductsInAlert(alertasOrdenados);
+      
       const itensAtivos = itens.content?.filter(i => i.ativo) || itens.filter(i => i.ativo) || [];
+      const imageMap = new Map(itensAtivos.map(i => [i.id, i.imagem?.url ? env('VITE_API_BASE_URL') + i.imagem.url : null]));
+      
+      const enrichedAlerts = alertasOrdenados.map(alerta => ({
+        ...alerta,
+        imagemUrl: imageMap.get(alerta.itemId) || null,
+      }));
+      
+      setProductsInAlert(enrichedAlerts);
       const total = itensAtivos.length;
       const zerados = itensAtivos.filter(i => i.quantidadeAtual === 0).length;
       const baixos = itensAtivos.filter(i => i.quantidadeAtual > 0 && i.quantidadeAtual < i.quantidadeMinima).length;
@@ -67,7 +76,9 @@ export default function Dashboard() {
   const alertColumns = [
     {
       header: 'Foto', accessor: 'imagemUrl', width: '64px',
-      render: () => (
+      render: (row) => row.imagemUrl ? (
+        <img src={row.imagemUrl} alt={row.itemNome} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid #d0dde8' }} />
+      ) : (
         <div className="rounded-lg flex items-center justify-center" style={{ width: '44px', height: '44px', backgroundColor: '#e2eaf3', border: '1.5px dashed #c0d0df' }}>
           <span style={{ fontSize: '11px', color: '#6a92b0' }}>IMG</span>
         </div>
