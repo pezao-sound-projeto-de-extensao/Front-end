@@ -77,10 +77,10 @@ export default function Dashboard() {
     {
       header: 'Foto', accessor: 'imagemUrl', width: '64px',
       render: (row) => row.imagemUrl ? (
-        <img src={row.imagemUrl} alt={row.itemNome} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid #d0dde8' }} />
+        <img src={row.imagemUrl} alt={row.itemNome} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid var(--border-subtle)' }} />
       ) : (
-        <div className="rounded-lg flex items-center justify-center" style={{ width: '44px', height: '44px', backgroundColor: '#e2eaf3', border: '1.5px dashed #c0d0df' }}>
-          <span style={{ fontSize: '11px', color: '#6a92b0' }}>IMG</span>
+        <div className="rounded-lg flex items-center justify-center" style={{ width: '44px', height: '44px', backgroundColor: 'var(--bg-input)', border: '1.5px dashed var(--border-subtle)' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>IMG</span>
         </div>
       ),
     },
@@ -95,10 +95,10 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: '#e8edf3' }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg-page)' }}>
       {productsInAlert.length > 0 && (
-        <div className="w-full px-6 py-2.5 flex items-center justify-between cursor-pointer hover:opacity-90 transition-opacity" style={{ backgroundColor: '#fff0e0', borderLeft: '4px solid #e07b00' }}>
-          <p style={{ fontSize: '13px', color: '#b86200' }}>{productsInAlert.length} produtos estão com estoque abaixo do mínimo</p>
+        <div className="w-full px-6 py-2.5 flex items-center justify-between cursor-pointer hover:opacity-90 transition-opacity" style={{ backgroundColor: '#fff8e1', borderLeft: '4px solid #e07b00' }}>
+          <p style={{ fontSize: '13px', color: '#b86200', fontWeight: '500' }}>{productsInAlert.length} produtos estão com estoque abaixo do mínimo</p>
           <Button onClick={() => navigate('/products', { state: { filterByAlert: true } })} variant="secondary" className="px-3 py-1.5 rounded text-xs" style={{ backgroundColor: '#e07b00', color: '#ffffff', borderRadius: '6px' }}>Ver agora</Button>
         </div>
       )}
@@ -108,27 +108,27 @@ export default function Dashboard() {
           <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#1565c0', color: '#ffffff', boxShadow: '0 2px 6px rgba(21,101,192,0.3)' }}>
             <LayoutDashboard className="w-5 h-5" />
           </div>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0d2137' }}>Dashboard</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)' }}>Dashboard</h2>
         </div>
         <KPICardGrid cards={kpiCards} />
 
         <div className="mb-6">
-          <h2 className="mb-3" style={{ fontSize: '13px', color: '#0d2e52', fontWeight: '500' }}>Produtos que precisam de atenção</h2>
+          <h2 className="mb-3" style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '600' }}>Produtos que precisam de atenção</h2>
           <DataTable columns={alertColumns} data={productsInAlert} emptyMessage="Nenhum produto em alerta" rowKey="itemId" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Button onClick={() => navigate('/movements')} className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '600', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Registrar entrada</Button>
-          <Button onClick={() => navigate('/movements')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#1565c0', fontSize: '13px', fontWeight: '600', borderRadius: '8px', border: '1.5px solid #1565c0' }}><Minus className="w-4 h-4" /> Registrar saída</Button>
-          <Button onClick={() => navigate('/products')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#1a3a55', fontSize: '13px', fontWeight: '600', borderRadius: '8px', border: '1.5px solid #d0dde8' }}><PackagePlus className="w-4 h-4" /> Cadastrar produto</Button>
-          <Button onClick={() => navigate('/reports')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#1a3a55', fontSize: '13px', fontWeight: '600', borderRadius: '8px', border: '1.5px solid #d0dde8' }}><FileText className="w-4 h-4" /> Ver relatório</Button>
+          <Button onClick={() => navigate('/movements')} className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Registrar entrada</Button>
+          <Button onClick={() => navigate('/movements')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1565c0', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid #1565c0', boxShadow: 'var(--shadow-card)' }}><Minus className="w-4 h-4" /> Registrar saída</Button>
+          <Button onClick={() => navigate('/products')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><PackagePlus className="w-4 h-4" /> Cadastrar produto</Button>
+          <Button onClick={() => navigate('/reports')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><FileText className="w-4 h-4" /> Ver relatório</Button>
         </div>
       </div>
 
       {showEntryModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} onClick={() => setShowEntryModal(false)}>
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()} style={{ borderRadius: '10px' }}>
-            <h2 className="mb-4" style={{ fontSize: '18px', color: '#0d2137', fontWeight: 'bold' }}>Registrar entrada de produto</h2>
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()} style={{ borderRadius: '10px', boxShadow: 'var(--shadow-card-hover)' }}>
+            <h2 className="mb-4" style={{ fontSize: '18px', color: 'var(--text-primary)', fontWeight: '800' }}>Registrar entrada de produto</h2>
             <FormField label="Produto" error={errors.productId}>
               <FormSelect value={formData.productId} onChange={(e) => setFormData({ ...formData, productId: e.target.value })} error={errors.productId}>
                 <option value="">Selecione um produto</option>
@@ -142,11 +142,11 @@ export default function Dashboard() {
               <FormInput type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
             </FormField>
             <FormField label="Observação">
-              <textarea className="w-full p-2 border rounded" style={{ borderColor: '#d0dde8' }} value={formData.observation} onChange={(e) => setFormData({ ...formData, observation: e.target.value })} />
+              <textarea className="w-full p-2 border rounded" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-input)', borderRadius: '8px', padding: '10px 14px', fontSize: '14px', color: 'var(--text-primary)' }} value={formData.observation} onChange={(e) => setFormData({ ...formData, observation: e.target.value })} />
             </FormField>
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setShowEntryModal(false)} className="px-4 py-2 rounded" style={{ backgroundColor: '#f0f4f8', color: '#1a3a55', fontSize: '13px', fontWeight: '600', borderRadius: '8px', border: '1.5px solid #d0dde8' }}>Cancelar</Button>
-              <Button onClick={handleConfirmEntry} className="px-4 py-2 rounded" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '600', borderRadius: '8px' }}>Confirmar</Button>
+              <Button variant="outline" onClick={() => setShowEntryModal(false)} className="px-4 py-2 rounded" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)' }}>Cancelar</Button>
+              <Button onClick={handleConfirmEntry} className="px-4 py-2 rounded" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px' }}>Confirmar</Button>
             </div>
           </div>
         </div>

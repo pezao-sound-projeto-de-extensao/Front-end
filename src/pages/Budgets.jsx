@@ -198,6 +198,8 @@ export default function Budgets() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
+  const [aceitarModal, setAceitarModal] = useState({ open: false, id: null });
+  const [rejeitarModal, setRejeitarModal] = useState({ open: false, id: null });
   const [clientSearchDebounce, setClientSearchDebounce] = useState('');
   const [showNewClientFields, setShowNewClientFields] = useState(false);
   const [productSearchDebounce, setProductSearchDebounce] = useState({});
@@ -375,26 +377,34 @@ export default function Budgets() {
     }, BUDGET_FIELDS);
   };
 
-  const handleAceitar = async (id) => {
-    if (!window.confirm('Aceitar este orçamento? Isso gerará encomendas para os itens.')) return;
+  const handleAceitar = (id) => {
+    setAceitarModal({ open: true, id });
+  };
+
+  const confirmAceitar = async () => {
     try {
-      await orcamentoService.aceitar(id);
+      await orcamentoService.aceitar(aceitarModal.id);
       showApiSuccess('Orçamento aceito com sucesso! Encomendas geradas.');
       await loadData();
     } catch (err) {
       showApiError(err, BUDGET_FIELDS);
     }
+    setAceitarModal({ open: false, id: null });
   };
 
-  const handleRejeitar = async (id) => {
-    if (!window.confirm('Rejeitar este orçamento?')) return;
+  const handleRejeitar = (id) => {
+    setRejeitarModal({ open: true, id });
+  };
+
+  const confirmRejeitar = async () => {
     try {
-      await orcamentoService.rejeitar(id);
+      await orcamentoService.rejeitar(rejeitarModal.id);
       showApiSuccess('Orçamento rejeitado com sucesso!');
       await loadData();
     } catch (err) {
       showApiError(err, BUDGET_FIELDS);
     }
+    setRejeitarModal({ open: false, id: null });
   };
 
   const confirmDelete = async () => {
@@ -420,8 +430,8 @@ export default function Budgets() {
   const columns = [
     { header: 'Número', accessor: 'id', render: (row) => <span style={{ fontWeight: '500' }}>#{row.id}</span> },
     { header: 'Data', accessor: 'criadoEm', render: (row) => formatDate(row.criadoEm) },
-    { header: 'Cliente', accessor: 'cliente.nome' },
-    { header: 'Telefone', accessor: 'cliente.telefone' },
+    { header: 'Cliente', accessor: 'clienteNome', render: (row) => row.cliente?.nome || '—' },
+    { header: 'Telefone', accessor: 'clienteTelefone', render: (row) => row.cliente?.telefone || '—' },
     { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
     { header: 'Total', accessor: 'valorTotal', align: 'right', render: (row) => <span style={{ fontWeight: 'bold' }}>{formatCurrency(row.valorTotal)}</span> },
     {
@@ -476,7 +486,7 @@ export default function Budgets() {
 
   return (
     <PageLayout title="Orçamentos" icon={FileText} actions={
-      <Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}>
+      <Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}>
         <Plus className="w-4 h-4" /> Novo orçamento
       </Button>
     }>
@@ -529,7 +539,7 @@ export default function Budgets() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block mb-2 uppercase" style={{ fontSize: '12px', color: '#5a82a0' }}>Itens do orçamento</label>
-              <Button type="button" variant="outline" size="sm" onClick={addItem} style={{ backgroundColor: '#f0f4f8', color: '#1565c0', border: '1.5px solid #1565c0', fontSize: '12px', fontWeight: 'bold', borderRadius: '6px' }}>
+              <Button type="button" variant="outline" size="sm" onClick={addItem} style={{ backgroundColor: 'var(--bg-card)', color: '#1565c0', border: '1.5px solid #1565c0', fontSize: '12px', fontWeight: '700', borderRadius: '6px', boxShadow: 'var(--shadow-card)' }}>
                 <Plus className="w-3 h-3" /> Adicionar item
               </Button>
             </div>
@@ -595,7 +605,7 @@ export default function Budgets() {
         </FormPanel>
       )}
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
         <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por cliente ou número..." />
         <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={statusOptions} />
       </div>
@@ -603,6 +613,8 @@ export default function Budgets() {
       <DataTable columns={columns} data={filteredBudgets} loading={loading} emptyMessage="Nenhum orçamento encontrado" statusAccessor="status" />
 
       <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Rejeitar orçamento" message="Tem certeza que deseja rejeitar este orçamento? (Exclusão não disponível, será marcado como rejeitado)" confirmLabel="Rejeitar" />
+      <ConfirmModal isOpen={aceitarModal.open} onClose={() => setAceitarModal({ open: false, id: null })} onConfirm={confirmAceitar} title="Aceitar orçamento" message="Aceitar este orçamento? Isso gerará encomendas para os itens." confirmLabel="Aceitar" confirmVariant="default" />
+      <ConfirmModal isOpen={rejeitarModal.open} onClose={() => setRejeitarModal({ open: false, id: null })} onConfirm={confirmRejeitar} title="Rejeitar orçamento" message="Tem certeza que deseja rejeitar este orçamento?" confirmLabel="Rejeitar" confirmVariant="destructive" />
     </PageLayout>
   );
 }
