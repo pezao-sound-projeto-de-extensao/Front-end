@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, FileText, CheckCircle, XCircle, UserPlus, ChevronDown, Search as SearchIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Trash2, FileText, CheckCircle, XCircle, UserPlus, ChevronDown, Search as SearchIcon, Eye } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { orcamentoService } from '../services/orcamentoService';
@@ -180,6 +181,7 @@ function AutocompleteSelect({
 }
 
 export default function Budgets() {
+  const navigate = useNavigate();
   const [budgets, setBudgets] = useState([]);
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
@@ -426,6 +428,16 @@ export default function Budgets() {
           >
             Editar
           </Button>
+          {(row.status === 'PENDENTE' || row.status === 'ACEITO') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(`/budgets/${row.id}`)}
+              style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}
+            >
+              <Eye className="w-3 h-3 inline-block mr-1" /> Visualizar
+            </Button>
+          )}
           {row.status === 'PENDENTE' && (
             <>
               <Button

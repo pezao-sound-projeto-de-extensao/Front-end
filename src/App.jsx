@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import Movements from './pages/Movements'
 import Budgets from './pages/Budgets'
+import BudgetView from './pages/BudgetView'
 import Orders from './pages/Orders'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/products" element={<Products />} />
               <Route path="/movements" element={<Movements />} />
               <Route path="/budgets" element={<Budgets />} />
+              <Route path="/budgets/:id" element={<BudgetView />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/users" element={<Users />} />
