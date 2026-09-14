@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { orcamentoService } from '../services/orcamentoService';
 import { clienteService } from '../services/clienteService';
+import { categoriaService, unidadeService } from '../services/produtoService';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
@@ -14,6 +15,7 @@ import FormPanel from '../components/FormPanel';
 import FormField, { FormInput, FormSelect, FormTextarea } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
+import ProductCreateModal from '../components/ProductCreateModal';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDate, formatCurrency } from '../lib/formatters';
 import { showApiError, showApiSuccess } from '../lib/apiError';
@@ -185,10 +187,18 @@ export default function Budgets() {
   const [budgets, setBudgets] = useState([]);
   const [products, setProducts] = useState([]);
   const [clients, setClients] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [unidades, setUnidades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
+<<<<<<< Updated upstream
+=======
+  const [aceitarModal, setAceitarModal] = useState({ open: false, id: null });
+  const [rejeitarModal, setRejeitarModal] = useState({ open: false, id: null });
+  const [createProductModal, setCreateProductModal] = useState({ open: false, itemIndex: null });
+>>>>>>> Stashed changes
   const [clientSearchDebounce, setClientSearchDebounce] = useState('');
   const [showNewClientFields, setShowNewClientFields] = useState(false);
   const [productSearchDebounce, setProductSearchDebounce] = useState({});
@@ -222,6 +232,9 @@ export default function Budgets() {
       const itemsPage = await itemService.listar({ size: 1000, ativo: true });
       const items = itemsPage.content || itemsPage;
       setProducts(items.map(i => ({ id: i.id, nome: i.nome, precoVenda: i.precoVenda || 0 })));
+      const [cats, unids] = await Promise.all([categoriaService.listar(), unidadeService.listar()]);
+      setCategorias(cats);
+      setUnidades(unids);
       const data = await orcamentoService.listar({ size: 1000 });
       setBudgets(data.content || data);
     } catch (err) {
@@ -321,11 +334,7 @@ export default function Budgets() {
 
   const handleProductSelect = (index, itemId) => {
     if (itemId === 'novo') {
-      setShowNewProductFields(prev => ({ ...prev, [index]: true }));
-      setFormData(prev => ({
-        ...prev,
-        itens: prev.itens.map((item, i) => i === index ? { ...item, itemId: '', descricao: '', precoUnitario: 0, isNewProduct: true } : item),
-      }));
+      setCreateProductModal({ open: true, itemIndex: index });
     } else {
       setShowNewProductFields(prev => ({ ...prev, [index]: false }));
       const product = products.find(p => p.id === parseInt(itemId));
@@ -385,6 +394,27 @@ export default function Budgets() {
       await loadData();
     } catch (err) {
       showApiError(err);
+    }
+  };
+
+  const handleCreateProduct = async (productData, itemIndex) => {
+    try {
+      const created = await itemService.criar(productData);
+      await loadData();
+      setFormData(prev => ({
+        ...prev,
+        itens: prev.itens.map((item, i) => i === itemIndex ? {
+          ...item,
+          itemId: created.id,
+          descricao: created.nome,
+          precoUnitario: created.precoVenda || 0,
+          isNewProduct: false,
+        } : item),
+      }));
+      showApiSuccess('Produto criado com sucesso!');
+    } catch (err) {
+      showApiError(err);
+      throw err;
     }
   };
 
@@ -604,6 +634,20 @@ export default function Budgets() {
       <DataTable columns={columns} data={filteredBudgets} loading={loading} emptyMessage="Nenhum orçamento encontrado" />
 
       <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Rejeitar orçamento" message="Tem certeza que deseja rejeitar este orçamento? (Exclusão não disponível, será marcado como rejeitado)" confirmLabel="Rejeitar" />
+<<<<<<< Updated upstream
+=======
+      <ConfirmModal isOpen={aceitarModal.open} onClose={() => setAceitarModal({ open: false, id: null })} onConfirm={confirmAceitar} title="Aceitar orçamento" message="Aceitar este orçamento? Isso gerará encomendas para os itens." confirmLabel="Aceitar" confirmVariant="default" />
+      <ConfirmModal isOpen={rejeitarModal.open} onClose={() => setRejeitarModal({ open: false, id: null })} onConfirm={confirmRejeitar} title="Rejeitar orçamento" message="Tem certeza que deseja rejeitar este orçamento?" confirmLabel="Rejeitar" confirmVariant="destructive" />
+      <ProductCreateModal
+        isOpen={createProductModal.open}
+        onClose={() => setCreateProductModal({ open: false, itemIndex: null })}
+        onSave={handleCreateProduct}
+        itemIndex={createProductModal.itemIndex}
+        categorias={categorias}
+        unidades={unidades}
+        loading={loading}
+      />
+>>>>>>> Stashed changes
     </PageLayout>
   );
 }

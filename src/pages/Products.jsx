@@ -36,6 +36,13 @@ export default function Products() {
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [viewPhoto, setViewPhoto] = useState(null);
 
+  const formatCurrencyInput = (value) => {
+    let v = value.replace(/\D/g, '');
+    if (v === '') return '';
+    v = (parseInt(v) / 100).toFixed(2).replace('.', ',');
+    return v;
+  };
+
   const { showForm, editMode, currentItem, formData, setFormData, errors, saving, handleNew, handleEdit, handleCancel, handleSave, handleClearField } = useCrudForm({
     initialData: { nome: '', categoriaId: '', unidadeId: '', quantidadeAtual: '', quantidadeMinima: '', precoCusto: '', precoVenda: '' },
     validate: (data) => ({
@@ -102,10 +109,14 @@ export default function Products() {
 
   const handleEditProduct = (product) => {
     handleEdit(product);
+    const formatPrice = (val) => {
+      if (val === undefined || val === null || val === '') return '';
+      return val.toFixed(2).replace('.', ',');
+    };
     setFormData({
       nome: product.name, categoriaId: product.categoryId || '', unidadeId: product.unitId || '',
       quantidadeAtual: product.currentStock.toString(), quantidadeMinima: product.minStock.toString(),
-      precoCusto: product.precoCustoRaw?.toString() || '', precoVenda: product.precoVendaRaw?.toString() || '',
+      precoCusto: formatPrice(product.precoCustoRaw), precoVenda: formatPrice(product.precoVendaRaw),
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
     setDeleteImage(false);
@@ -203,10 +214,10 @@ export default function Products() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Preço de custo">
-              <FormInput placeholder="0,00" value={formData.precoCusto} onChange={(e) => setFormData({ ...formData, precoCusto: e.target.value })} />
+              <FormInput placeholder="0,00" value={formData.precoCusto} onChange={(e) => setFormData({ ...formData, precoCusto: formatCurrencyInput(e.target.value) })} />
             </FormField>
             <FormField label="Preço de venda">
-              <FormInput placeholder="0,00" value={formData.precoVenda} onChange={(e) => setFormData({ ...formData, precoVenda: e.target.value })} />
+              <FormInput placeholder="0,00" value={formData.precoVenda} onChange={(e) => setFormData({ ...formData, precoVenda: formatCurrencyInput(e.target.value) })} />
             </FormField>
           </div>
           <div>
