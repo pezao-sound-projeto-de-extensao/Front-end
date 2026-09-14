@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { categoriaService, unidadeService, imagemProdutoService } from '../services/produtoService';
+import { movimentacaoService } from '../services/movimentacaoService';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
@@ -17,7 +18,17 @@ import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import PhotoViewerModal from '../components/PhotoViewerModal';
 import useCrudForm from '../hooks/useCrudForm';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+
+const PRODUCT_FIELDS = {
+  nome: 'Nome',
+  categoriaId: 'Categoria',
+  unidadeId: 'Unidade',
+  quantidadeAtual: 'Quantidade atual',
+  quantidadeMinima: 'Quantidade mínima',
+  precoCusto: 'Preço de custo',
+  precoVenda: 'Preço de venda',
+};
 
 export default function Products() {
   const location = useLocation();
@@ -31,6 +42,7 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todas as categorias');
   const [statusFilter, setStatusFilter] = useState(filterByAlert ? 'Em alerta' : 'Todos os status');
+  const [ativoFilter, setAtivoFilter] = useState('Ativos');
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
@@ -87,7 +99,9 @@ export default function Products() {
       currentStock: qtd, minStock: min,
       costPrice: p.precoCusto ? `R$ ${p.precoCusto.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
       salePrice: p.precoVenda ? `R$ ${p.precoVenda.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
-      status, photo: env('VITE_API_BASE_URL') + p.imagem?.url, ativo: p.ativo,
+      status,
+      photo: p.imagem?.url === undefined ? null : env('VITE_API_BASE_URL') + p.imagem?.url,
+      ativo: p.ativo,
       precoCustoRaw: p.precoCusto, precoVendaRaw: p.precoVenda,
     };
   };
@@ -112,14 +126,33 @@ export default function Products() {
   const existingImageUrl = editMode && currentItem?.photo && !deleteImage ? currentItem.photo : null;
 
   const handleSaveProduct = async () => {
-    await handleSave((data) => ({
+    const createdItem = await handleSave((data) => ({
       nome: data.nome.trim(), categoriaId: parseInt(data.categoriaId), unidadeId: parseInt(data.unidadeId),
       quantidadeAtual: parseInt(data.quantidadeAtual) || 0, quantidadeMinima: parseInt(data.quantidadeMinima) || 0,
       precoCusto: parseFloat((data.precoCusto || '0').replace(',', '.')) || 0,
       precoVenda: parseFloat((data.precoVenda || '0').replace(',', '.')) || 0,
     }));
+    
+    // Registrar entrada inicial se for um novo produto com quantidade > 0
+    if (!editMode && createdItem?.id && parseInt(formData.quantidadeAtual) > 0) {
+      try {
+        await movimentacaoService.registrar({
+          itemId: createdItem.id,
+          tipo: 'entrada',
+          quantidade: parseInt(formData.quantidadeAtual),
+          data: new Date().toISOString().split('T')[0],
+          observacao: 'Estoque inicial do cadastro do produto'
+        });
+      } catch (err) {
+        console.error('Erro ao registrar entrada inicial:', err);
+      }
+    }
+
     if (fileInputRef.current?.files?.[0]) {
-      await imagemProdutoService.upload(currentItem?.id, fileInputRef.current.files[0]);
+      const targetId = createdItem?.id || currentItem?.id;
+      if (targetId) {
+        await imagemProdutoService.upload(targetId, fileInputRef.current.files[0]);
+      }
     } else if (editMode && deleteImage && currentItem?.photo) {
       await imagemProdutoService.deletar(currentItem?.id);
     }
@@ -130,11 +163,20 @@ export default function Products() {
       await itemService.inativar(deleteModal.id);
       await loadProducts();
       showApiSuccess('Produto inativado com sucesso!');
-    } catch (err) { showApiError(err); }
+    } catch (err) { showApiError(err, PRODUCT_FIELDS); }
     setDeleteModal({ open: false, id: null });
   };
 
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesAtivo = ativoFilter === 'Todos' || (ativoFilter === 'Ativos' ? p.ativo : !p.ativo);
+    return matchesSearch && matchesAtivo;
+  });
+
+  const ativoVariants = {
+    true: { bg: '#e6f7ef', color: '#1e9e5e' },
+    false: { bg: '#fdeaea', color: '#c0392b' },
+  };
 
   const columns = [
     {
@@ -157,7 +199,8 @@ export default function Products() {
     { header: 'Qtd atual', accessor: 'currentStock' },
     { header: 'Qtd mínima', accessor: 'minStock' },
     { header: 'Preço venda', accessor: 'salePrice' },
-    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
+    { header: 'Status Estoque', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
+    { header: 'Ativo', accessor: 'ativo', render: (row) => <StatusBadge status={row.ativo ? 'ativo' : 'inativo'} variants={ativoVariants} /> },
     {
       header: 'Ações', align: 'right',
       render: (row) => (
@@ -170,7 +213,7 @@ export default function Products() {
   ];
 
   return (
-    <PageLayout title="Produtos" icon={Package} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Novo produto</Button>}>
+    <PageLayout title="Produtos" icon={Package} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Novo produto</Button>}>
       {showForm && (
         <FormPanel title={editMode ? 'Editar produto' : 'Novo produto'}>
           <FormField label="Nome do produto" error={errors.nome}>
@@ -238,13 +281,14 @@ export default function Products() {
         </FormPanel>
       )}
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
         <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar produto pelo nome..." />
         <FilterSelect value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todas as categorias', label: 'Todas as categorias' }, ...categorias.map(c => ({ value: c.nome, label: c.nome }))]} />
         <FilterSelect value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todos os status', label: 'Todos os status' }, { value: 'Em alerta', label: 'Em alerta' }]} />
+        <FilterSelect value={ativoFilter} onChange={(e) => { setAtivoFilter(e.target.value); setCurrentPage(0); }} width="140px" options={[{ value: 'Ativos', label: 'Ativos' }, { value: 'Inativos', label: 'Inativos' }, { value: 'Todos', label: 'Todos' }]} />
       </div>
 
-      <DataTable columns={columns} data={filteredProducts} loading={loading} emptyMessage="Nenhum produto encontrado" />
+      <DataTable columns={columns} data={filteredProducts} loading={loading} emptyMessage="Nenhum produto encontrado" ativoAccessor="ativo" />
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
       <PhotoViewerModal src={viewPhoto} onClose={() => setViewPhoto(null)} />

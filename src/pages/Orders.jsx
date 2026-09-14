@@ -14,7 +14,17 @@ import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDate, formatCurrency } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+
+const ORDER_FIELDS = {
+  supplierName: 'Fornecedor',
+  supplierContact: 'Contato',
+  status: 'Status',
+  date: 'Data do pedido',
+  expectedDate: 'Previsão de entrega',
+  'items.productId': 'Produto',
+  'items.quantity': 'Quantidade',
+};
 
 const initialFormData = {
   supplierName: '',
@@ -86,7 +96,7 @@ export default function Orders() {
       data: data.date,
       dataPrevisao: data.expectedDate,
       itens: data.items.map(item => ({ itemId: parseInt(item.productId), quantidade: item.quantity })),
-    }));
+    }), ORDER_FIELDS);
   };
 
   const confirmDelete = async () => {
@@ -94,7 +104,7 @@ export default function Orders() {
       await pedidoService.deletar(deleteModal.id);
       await loadData();
       showApiSuccess('Pedido excluído com sucesso!');
-    } catch (err) { showApiError(err); }
+    } catch (err) { showApiError(err, ORDER_FIELDS); }
     setDeleteModal({ open: false, id: null });
   };
 
@@ -124,7 +134,7 @@ export default function Orders() {
   ];
 
   return (
-    <PageLayout title="Encomendas" icon={ShoppingBag} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Nova encomenda</Button>}>
+    <PageLayout title="Encomendas" icon={ShoppingBag} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Nova encomenda</Button>}>
       {showForm && (
         <FormPanel title={editMode ? 'Editar encomenda' : 'Nova encomenda'}>
           <div className="grid grid-cols-2 gap-4">
@@ -186,12 +196,12 @@ export default function Orders() {
         </FormPanel>
       )}
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
         <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por fornecedor ou número..." />
         <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[{ value: 'Todos', label: 'Todos' }, { value: 'pendente', label: 'Pendente' }, { value: 'em_transito', label: 'Em trânsito' }, { value: 'entregue', label: 'Entregue' }, { value: 'cancelado', label: 'Cancelado' }]} />
       </div>
 
-      <DataTable columns={columns} data={filteredOrders} loading={loading} emptyMessage="Nenhum pedido encontrado" />
+      <DataTable columns={columns} data={filteredOrders} loading={loading} emptyMessage="Nenhum pedido encontrado" statusAccessor="status" />
 
       <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Excluir pedido" message="Tem certeza que deseja excluir este pedido?" confirmLabel="Excluir" />
     </PageLayout>

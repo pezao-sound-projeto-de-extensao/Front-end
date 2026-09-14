@@ -92,13 +92,13 @@ export default function ChangePassword() {
   };
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: '#e8edf3' }}>
+    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg-page)' }}>
       <div className="max-w-md mx-auto p-6">
         <div className="flex items-center gap-3 mb-8">
           <Button variant="ghost" size="icon" onClick={() => navigate('/login')} style={{ color: '#1a3a55' }}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#0d2137' }}>Alterar senha</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>Alterar senha</h2>
         </div>
 
         {success ? (
@@ -107,10 +107,10 @@ export default function ChangePassword() {
             message="Você será redirecionado para o login em instantes..."
           />
         ) : (
-          <div className="bg-white p-8 rounded-lg" style={{ border: '1px solid #d0dde8', borderRadius: '10px', boxShadow: '0 4px 24px rgba(13,33,55,0.10)' }}>
+          <div className="bg-white p-8 rounded-lg" style={{ border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-panel)' }}>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block mb-2 uppercase" style={{ fontSize: '12px', color: '#5a82a0' }}>E-mail</label>
+                <label className="block mb-2 uppercase" style={{ fontSize: '12px', color: '#5a82a0', fontWeight: '600' }}>E-mail</label>
                 <input
                   type="email"
                   placeholder="seu@email.com"
@@ -119,14 +119,17 @@ export default function ChangePassword() {
                   disabled={!!location.state?.email}
                   className="w-full rounded-lg"
                   style={{
-                    backgroundColor: location.state?.email ? '#e8edf3' : '#fafbfc',
-                    border: errors.email ? '1.5px solid #e84040' : '1.5px solid #d0dde8',
+                    backgroundColor: location.state?.email ? 'var(--bg-input)' : 'var(--bg-input)',
+                    border: errors.email ? '1.5px solid #e84040' : '1.5px solid var(--border-subtle)',
                     borderRadius: '8px',
                     padding: '10px 14px',
                     fontSize: '14px',
-                    color: '#1a3a55',
+                    color: 'var(--text-primary)',
                     opacity: location.state?.email ? 0.7 : 1,
+                    transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
                   }}
+                  onFocus={(e) => { if (!location.state?.email) { e.target.style.borderColor = '#1565c0'; e.target.style.boxShadow = '0 0 0 3px rgba(21,101,192,0.15)'; } }}
+                  onBlur={(e) => { if (!location.state?.email) { e.target.style.borderColor = 'var(--border-subtle)'; e.target.style.boxShadow = 'none'; } }}
                 />
                 {errors.email && <p style={{ fontSize: '11px', color: '#e84040', marginTop: '4px' }}>{errors.email}</p>}
               </div>
@@ -158,7 +161,7 @@ export default function ChangePassword() {
                 error={errors.confirmPassword}
               />
 
-              <Button type="submit" disabled={loading} className="w-full px-5 py-2.5 rounded-lg" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '15px', fontWeight: 'bold', borderRadius: '8px' }}>
+              <Button type="submit" disabled={loading} className="w-full px-5 py-2.5 rounded-lg" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '15px', fontWeight: '700', borderRadius: '8px' }}>
                 {loading ? 'Salvando...' : 'Salvar alterações'}
               </Button>
             </form>

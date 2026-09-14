@@ -14,9 +14,15 @@ import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDate } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError';
+import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
 
-const MOVEMENT_FIELDS = { itemId: 'Produto', quantidade: 'Quantidade' };
+const MOVEMENT_FIELDS = { 
+  itemId: 'Produto', 
+  quantidade: 'Quantidade', 
+  tipo: 'Tipo', 
+  data: 'Data', 
+  observacao: 'Observação' 
+};
 
 const initialFormData = {
   itemId: '',
@@ -130,7 +136,7 @@ export default function Movements() {
       await movimentacaoService.deletar(deleteModal.id);
       await loadMovements();
       showApiSuccess('Movimentação excluída com sucesso!');
-    } catch (error) { showApiError(error); }
+    } catch (error) { showApiError(error, MOVEMENT_FIELDS); }
     setDeleteModal({ open: false, id: null });
   };
 
@@ -163,8 +169,8 @@ export default function Movements() {
 
   return (
     <PageLayout title="Movimentações" icon={ArrowLeftRight} actions={<>
-      <Button onClick={() => handleNewMovement('entrada')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px' }}><Plus className="w-4 h-4" /> Nova entrada</Button>
-      <Button variant="outline" onClick={() => handleNewMovement('saida')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#f0f4f8', color: '#e84040', fontSize: '13px', fontWeight: 'bold', borderRadius: '8px', border: '1.5px solid #e84040' }}><Minus className="w-4 h-4" /> Nova saída</Button>
+      <Button onClick={() => handleNewMovement('entrada')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Nova entrada</Button>
+      <Button variant="outline" onClick={() => handleNewMovement('saida')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#e84040', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid #e84040', boxShadow: 'var(--shadow-card)' }}><Minus className="w-4 h-4" /> Nova saída</Button>
     </>}>
       {showForm && (
         <FormPanel
@@ -172,7 +178,6 @@ export default function Movements() {
             <span className="flex items-center gap-2">
               {editMode ? 'Editar movimentação' : 'Nova movimentação'}
               <span className="px-2 py-0.5 rounded flex items-center gap-1" style={{ backgroundColor: formData.tipo === 'entrada' ? '#e3edf7' : '#fdeaea', color: formData.tipo === 'entrada' ? '#1565c0' : '#c0392b', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>
-                {formData.tipo === 'entrada' ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
                 {formData.tipo === 'entrada' ? 'Entrada' : 'Saída'}
               </span>
             </span>
@@ -189,7 +194,7 @@ export default function Movements() {
                   ? { backgroundColor: '#1565c0', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #1565c0' }
                   : { backgroundColor: '#ffffff', color: '#1565c0', fontWeight: '500', border: '1.5px solid #bcd6ee' }}
               >
-                <ArrowDownToLine className="w-4 h-4" /> Entrada (estoque +)
+                Entrada
               </button>
               <button
                 type="button"
@@ -199,7 +204,7 @@ export default function Movements() {
                   ? { backgroundColor: '#e84040', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #e84040' }
                   : { backgroundColor: '#ffffff', color: '#c0392b', fontWeight: '500', border: '1.5px solid #f5c6c6' }}
               >
-                <ArrowUpFromLine className="w-4 h-4" /> Saída (estoque −)
+                Saída
               </button>
             </div>
           </FormField>
@@ -225,12 +230,12 @@ export default function Movements() {
         </FormPanel>
       )}
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
         <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar por produto..." />
         <FilterSelect value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(0); }} width="140px" options={[{ value: 'Todos', label: 'Todos' }, { value: 'entrada', label: 'Entradas' }, { value: 'saida', label: 'Saídas' }]} />
       </div>
 
-      <DataTable columns={columns} data={movements} loading={loading} emptyMessage="Nenhuma movimentação encontrada" />
+      <DataTable columns={columns} data={movements} loading={loading} emptyMessage="Nenhuma movimentação encontrada" statusAccessor="tipo" />
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
       <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Excluir movimentação" message="Tem certeza que deseja excluir esta movimentação? O estoque será revertido." confirmLabel="Excluir" />
