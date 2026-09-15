@@ -38,8 +38,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  function hasPermission(permission) {
+    return user?.cargo?.permissoes?.includes(permission);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

@@ -205,7 +205,7 @@ export default function BudgetView() {
               <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#1e9e5e' }} />
               <div>
                 <p style={{ fontSize: '13px', fontWeight: '600', color: '#1e9e5e' }}>Orçamento aceito</p>
-                <p style={{ fontSize: '12px', color: '#1a3a55' }}>Este orçamento gerou encomendas. <Link to="/orders" style={{ color: '#1565c0', fontWeight: '600', textDecoration: 'underline' }}>Ver encomendas</Link></p>
+                <p style={{ fontSize: '12px', color: '#1a3a55' }}>Este orçamento gerou encomendas. <Link to="/encomendas" style={{ color: '#1565c0', fontWeight: '600', textDecoration: 'underline' }}>Ver encomendas</Link></p>
               </div>
             </div>
           </div>
