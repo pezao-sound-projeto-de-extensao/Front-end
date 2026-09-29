@@ -6,6 +6,11 @@ export const alertaService = {
     return response.data;
   },
 
+  listarAlerta: async () => {
+    const response = await api.get('/itens', { params: { apenasAlerta: true } });
+    return response.data;
+  },
+
   buscarPorTipo: async (tipo) => {
     const response = await api.get('/alertas/buscar', { params: { tipo } });
     return response.data;
