@@ -9,7 +9,7 @@ import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import KPICardGrid from '../components/KPICardGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
-import FormField, { FormInput, FormSelect } from '../components/FormField';
+import FormField, { FormSelect, FormNumber, FormDate } from '../components/FormField';
 import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
 import { env } from '../config';
 
@@ -136,10 +136,10 @@ export default function Dashboard() {
               </FormSelect>
             </FormField>
             <FormField label="Quantidade" error={errors.quantity}>
-              <FormInput type="number" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} error={errors.quantity} />
+              <FormNumber value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} error={errors.quantity} placeholder="0" />
             </FormField>
             <FormField label="Data">
-              <FormInput type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+              <FormDate value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
             </FormField>
             <FormField label="Observação">
               <textarea className="w-full p-2 border rounded" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-input)', borderRadius: '8px', padding: '10px 14px', fontSize: '14px', color: 'var(--text-primary)' }} value={formData.observation} onChange={(e) => setFormData({ ...formData, observation: e.target.value })} />

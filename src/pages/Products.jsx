@@ -13,7 +13,7 @@ import DataTable from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import FormPanel from '../components/FormPanel';
-import FormField, { FormInput, FormSelect } from '../components/FormField';
+import FormField, { FormInput, FormSelect, FormCurrency } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import PhotoViewerModal from '../components/PhotoViewerModal';
@@ -50,9 +50,9 @@ export default function Products() {
 
   const { showForm, editMode, currentItem, formData, setFormData, errors, saving, handleNew, handleEdit, handleCancel, handleSave, handleClearField } = useCrudForm({
     initialData: { nome: '', categoriaId: '', unidadeId: '', quantidadeAtual: '', quantidadeMinima: '', precoCusto: '', precoVenda: '' },
-    validate: (data) => ({
+    validate: (data, isEditMode) => ({
       nome: !data.nome.trim(),
-      quantidadeAtual: !data.quantidadeAtual.trim() || isNaN(parseInt(data.quantidadeAtual)),
+      quantidadeAtual: !isEditMode && (!data.quantidadeAtual.trim() || isNaN(parseInt(data.quantidadeAtual))),
       categoriaId: !data.categoriaId,
       unidadeId: !data.unidadeId,
     }),
@@ -65,11 +65,13 @@ export default function Products() {
       setLoading(true);
       const params = { page: currentPage, size: 10, search: searchTerm || undefined };
       if (categoryFilter !== 'Todas as categorias') params.categoriaId = categorias.find(c => c.nome === categoryFilter)?.id;
-      const response = await itemService.listar(params);
-      let content = response.content || [];
+      let response;
       if (statusFilter === 'Em alerta') {
-        content = content.filter(p => { const qtd = p.quantidadeAtual || 0; const min = p.quantidadeMinima || 0; return qtd === 0 || qtd < min; });
+        response = await itemService.buscarPorAlerta(params);        
+      } else {
+        response = await itemService.listar(params);
       }
+      let content = response.content || [];
       setProducts(content.map(mapProduct));
       setTotalPages(response.totalPages || 1);
     } catch (error) { console.error('Erro ao carregar produtos:', error); }
@@ -90,9 +92,7 @@ export default function Products() {
   const mapProduct = (p) => {
     const qtd = p.quantidadeAtual || 0;
     const min = p.quantidadeMinima || 0;
-    let status = 'ok';
-    if (qtd === 0) status = 'zerado';
-    else if (qtd < min) status = 'baixo';
+    let status = p.status;
     return {
       id: p.id, name: p.nome, category: p.categoriaNome || '', categoryId: p.categoriaId,
       unit: p.unidadeNome ? `${p.unidadeNome} (${p.unidadeAbreviacao})` : '', unitId: p.unidadeId,
@@ -126,12 +126,20 @@ export default function Products() {
   const existingImageUrl = editMode && currentItem?.photo && !deleteImage ? currentItem.photo : null;
 
   const handleSaveProduct = async () => {
-    const createdItem = await handleSave((data) => ({
-      nome: data.nome.trim(), categoriaId: parseInt(data.categoriaId), unidadeId: parseInt(data.unidadeId),
-      quantidadeAtual: parseInt(data.quantidadeAtual) || 0, quantidadeMinima: parseInt(data.quantidadeMinima) || 0,
-      precoCusto: parseFloat((data.precoCusto || '0').replace(',', '.')) || 0,
-      precoVenda: parseFloat((data.precoVenda || '0').replace(',', '.')) || 0,
-    }));
+    const createdItem = await handleSave((data) => {
+      const payload = {
+        nome: data.nome.trim(), 
+        categoriaId: parseInt(data.categoriaId), 
+        unidadeId: parseInt(data.unidadeId),
+        quantidadeMinima: parseInt(data.quantidadeMinima) || 0,
+        precoCusto: parseFloat((data.precoCusto || '0').replace(',', '.')) || 0,
+        precoVenda: parseFloat((data.precoVenda || '0').replace(',', '.')) || 0,
+      };
+      if (!editMode) {
+        payload.quantidadeAtual = parseInt(data.quantidadeAtual) || 0;
+      }
+      return payload;
+    });
     
     // Registrar entrada inicial se for um novo produto com quantidade > 0
     if (!editMode && createdItem?.id && parseInt(formData.quantidadeAtual) > 0) {
@@ -235,7 +243,16 @@ export default function Products() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Quantidade atual" error={errors.quantidadeAtual}>
-              <FormInput type="number" min="0" value={formData.quantidadeAtual} onChange={(e) => { setFormData({ ...formData, quantidadeAtual: e.target.value }); handleClearField('quantidadeAtual'); }} error={errors.quantidadeAtual} />
+              <FormInput 
+                type="number" 
+                min="0" 
+                value={formData.quantidadeAtual} 
+                onChange={(e) => { setFormData({ ...formData, quantidadeAtual: e.target.value }); handleClearField('quantidadeAtual'); }} 
+                error={errors.quantidadeAtual}
+                disabled={editMode}
+                style={editMode ? { backgroundColor: 'var(--bg-input)', opacity: 0.6, cursor: 'not-allowed' } : {}}
+              />
+              {editMode && <p style={{ fontSize: '11px', color: '#6a92b0', marginTop: '4px' }}>Quantidade não pode ser alterada na edição. Use a tela de Movimentações para ajustar estoque.</p>}
             </FormField>
             <FormField label="Quantidade mínima">
               <FormInput type="number" min="0" value={formData.quantidadeMinima} onChange={(e) => setFormData({ ...formData, quantidadeMinima: e.target.value })} />
@@ -244,10 +261,10 @@ export default function Products() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Preço de custo">
-              <FormInput placeholder="0,00" value={formData.precoCusto} onChange={(e) => setFormData({ ...formData, precoCusto: e.target.value })} />
+              <FormCurrency placeholder="0,00" value={formData.precoCusto} onChange={(e) => setFormData({ ...formData, precoCusto: e.target.value })} />
             </FormField>
             <FormField label="Preço de venda">
-              <FormInput placeholder="0,00" value={formData.precoVenda} onChange={(e) => setFormData({ ...formData, precoVenda: e.target.value })} />
+              <FormCurrency placeholder="0,00" value={formData.precoVenda} onChange={(e) => setFormData({ ...formData, precoVenda: e.target.value })} />
             </FormField>
           </div>
           <div>

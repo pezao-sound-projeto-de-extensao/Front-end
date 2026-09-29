@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { LucideChevronLeft, LucideChevronRight, LucideSendHorizontal, LucideSendToBack, RefreshCw } from 'lucide-react';
 import { Button } from './ui/Button';
 
 export default function Pagination({ currentPage, totalPages, onPageChange }) {
@@ -11,10 +11,10 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
       </p>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 0}>
-          <RefreshCw className="w-4 h-4" />
+          <LucideChevronLeft className="w-4 h-4" />
         </Button>
         <Button variant="outline" size="sm" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages - 1}>
-          <RefreshCw className="w-4 h-4" />
+          <LucideChevronRight className="w-4 h-4" />
         </Button>
       </div>
     </div>

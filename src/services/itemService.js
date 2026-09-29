@@ -30,6 +30,11 @@ export const itemService = {
     const response = await api.patch(`/itens/${id}/reativar`);
     return response.data;
   },
+
+  buscarPorAlerta: async (params = {}) => {
+    const response = await api.get('/itens', { params: { ...params, apenasAlerta: true } });
+    return response.data;
+  }
 };
 
 export default itemService;
