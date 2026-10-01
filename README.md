@@ -1,16 +1,26 @@
-# React + Vite
+# StockFlow · Front-end
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interface web do **StockFlow**, sistema de gestão de estoque da **Pezão Sound** (loja de som automotivo). É um projeto de extensão.
 
-Currently, two official plugins are available:
+Com ela, a equipe da loja controla produtos e movimentações de estoque, cria orçamentos, acompanha encomendas, consulta relatórios e gerencia usuários e permissões. Tudo isso conversando com a API do back-end.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tecnologias
 
-## React Compiler
+React, Vite, Tailwind CSS, React Router e Axios.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Como rodar
 
-## Expanding the ESLint configuration
+Você precisa de Node.js 20+ e do back-end rodando.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm ci
+cp .env.example .env   # preencha VITE_API_BASE_URL com a URL do back-end
+npm run dev
+```
+
+## Docker
+
+```bash
+docker build -t pezao-sound-web .
+docker run -p 8080:80 -e VITE_API_BASE_URL=https://url-da-api pezao-sound-web
+```
