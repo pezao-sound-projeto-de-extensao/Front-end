@@ -1,20 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, ChevronDown, Package, ArrowLeftRight, FileText, ShoppingBag, Menu, X, LayoutDashboard, BarChart3, Users } from 'lucide-react';
+import { LogOut, ChevronDown, Package, ArrowLeftRight, FileText, ShoppingBag, Menu, X, LayoutDashboard, BarChart3, Users, Bot } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/Button';
+import { useAuth } from '../context/AuthContext';
+import { hasRouteAccess } from '../config/routePermissions';
 
-const ESTOQUE_ROUTES = ['/products', '/movements', '/budgets', '/orders'];
-
-const ESTOQUE_ITEMS = [
-  { path: '/products', label: 'Produtos', Icon: Package },
-  { path: '/movements', label: 'Movimentações', Icon: ArrowLeftRight },
-  { path: '/budgets', label: 'Orçamentos', Icon: FileText },
-  { path: '/orders', label: 'Encomendas', Icon: ShoppingBag },
+const NAV_ITEMS = [
+  { path: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, group: 'main' },
+  { path: '/products', label: 'Produtos', Icon: Package, group: 'estoque' },
+  { path: '/movements', label: 'Movimentações', Icon: ArrowLeftRight, group: 'estoque' },
+  { path: '/budgets', label: 'Orçamentos', Icon: FileText, group: 'estoque' },
+  { path: '/orders', label: 'Encomendas', Icon: ShoppingBag, group: 'estoque' },
+  { path: '/reports', label: 'Relatórios', Icon: BarChart3, group: 'gerenciamento' },
+  { path: '/users', label: 'Usuários', Icon: Users, group: 'gerenciamento' },
+  { path: '/innovation', label: 'Inovação', Icon: Bot, group: 'gerenciamento' },
 ];
 
 export function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasPermission } = useAuth();
   const [showEstoque, setShowEstoque] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const dropdownRef = useRef(null);
@@ -22,7 +27,14 @@ export function Navbar() {
   const handleLogout = () => navigate('/login');
 
   const isActive = (path) => location.pathname === path;
-  const isEstoqueActive = ESTOQUE_ROUTES.includes(location.pathname);
+  const isEstoqueActive = ['/products', '/movements', '/budgets', '/orders'].includes(location.pathname);
+
+  const hasAccess = (path) => hasRouteAccess(path, hasPermission);
+
+  const visibleItems = NAV_ITEMS.filter(item => hasAccess(item.path));
+  const visibleEstoqueItems = visibleItems.filter(item => item.group === 'estoque');
+  const visibleMainItems = visibleItems.filter(item => item.group === 'main');
+  const visibleGerenciamentoItems = visibleItems.filter(item => item.group === 'gerenciamento');
 
   useEffect(() => {
     const handler = (e) => {
@@ -59,6 +71,49 @@ export function Navbar() {
     </button>
   );
 
+  const navBtnWithIcon = (path, label, Icon) => (
+    <button
+      onClick={() => navigate(path)}
+      className="flex items-center gap-1.5 py-3 px-2 transition-colors hidden md:block"
+      style={{
+        fontSize: '14px',
+        fontWeight: 500,
+        color: isActive(path) ? '#2dbae1' : '#a8cce8',
+        borderBottom: isActive(path) ? '2px solid #2dbae1' : '2px solid transparent',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <Icon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+      {label}
+    </button>
+  );
+
+  const dropdownItem = ({ path, label, Icon }) => (
+    <button
+      key={path}
+      onClick={() => goTo(path)}
+      className="flex items-center gap-3 w-full px-4 py-3 transition-colors"
+      style={{
+        fontSize: '13px',
+        fontWeight: isActive(path) ? 700 : 500,
+        color: isActive(path) ? '#2dbae1' : '#a8cce8',
+        backgroundColor: isActive(path) ? 'rgba(45,186,225,0.1)' : 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        textAlign: 'left',
+        borderLeft: isActive(path) ? '3px solid #2dbae1' : '3px solid transparent',
+      }}
+      onMouseEnter={(e) => { if (!isActive(path)) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
+      onMouseLeave={(e) => { if (!isActive(path)) e.currentTarget.style.backgroundColor = 'transparent'; }}
+    >
+      <Icon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+      {label}
+    </button>
+  );
+
   const mobileItem = ({ path, label, Icon }) => (
     <button
       key={path}
@@ -80,6 +135,12 @@ export function Navbar() {
     </button>
   );
 
+  const sectionHeader = (label) => (
+    <p className="px-5 pt-4 pb-2" style={{ fontSize: '11px', fontWeight: 700, color: '#6a92b0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      {label}
+    </p>
+  );
+
   return (
     <header className="w-full relative" style={{ backgroundColor: '#0d2137', zIndex: 40, position: 'sticky', top: 0 }}>
       <div className="px-4 md:px-6 flex items-center justify-between" style={{ height: '56px' }}>
@@ -93,78 +154,61 @@ export function Navbar() {
 
         {/* Nav - Desktop */}
         <nav className="hidden md:flex items-center gap-1">
-          {/* Dashboard */}
-          {navBtn('/dashboard', 'Dashboard')}
+          {/* Main items (Dashboard) */}
+          {visibleMainItems.map(({ path, label }) => navBtn(path, label))}
 
           {/* Dropdown Estoque */}
-          <div ref={dropdownRef} className="relative">
-            <button
-              onClick={() => setShowEstoque(!showEstoque)}
-              className="flex items-center gap-1 py-3 px-2 transition-colors"
-              style={{
-                fontSize: '14px',
-                fontWeight: 500,
-                color: isEstoqueActive ? '#2dbae1' : '#a8cce8',
-                borderBottom: isEstoqueActive ? '2px solid #2dbae1' : '2px solid transparent',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Estoque
-              <ChevronDown
+          {visibleEstoqueItems.length > 0 && (
+            <div ref={dropdownRef} className="relative">
+              <button
+                onClick={() => setShowEstoque(!showEstoque)}
+                className="flex items-center gap-1 py-3 px-2 transition-colors"
                 style={{
-                  width: '14px',
-                  height: '14px',
-                  transition: 'transform 0.15s',
-                  transform: showEstoque ? 'rotate(180deg)' : 'rotate(0deg)',
-                }}
-              />
-            </button>
-
-            {showEstoque && (
-              <div
-                className="absolute top-full left-0 mt-1 rounded-lg overflow-hidden"
-                style={{
-                  backgroundColor: '#0d2137',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                  minWidth: '180px',
-                  zIndex: 50,
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: isEstoqueActive ? '#2dbae1' : '#a8cce8',
+                  borderBottom: isEstoqueActive ? '2px solid #2dbae1' : '2px solid transparent',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {ESTOQUE_ITEMS.map(({ path, label, Icon }) => (
-                  <button
-                    key={path}
-                    onClick={() => goTo(path)}
-                    className="flex items-center gap-3 w-full px-4 py-3 transition-colors"
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: isActive(path) ? 700 : 500,
-                      color: isActive(path) ? '#2dbae1' : '#a8cce8',
-                      backgroundColor: isActive(path) ? 'rgba(45,186,225,0.1)' : 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      borderLeft: isActive(path) ? '3px solid #2dbae1' : '3px solid transparent',
-                    }}
-                    onMouseEnter={(e) => { if (!isActive(path)) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
-                    onMouseLeave={(e) => { if (!isActive(path)) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  >
-                    <Icon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                Estoque
+                <ChevronDown
+                  style={{
+                    width: '14px',
+                    height: '14px',
+                    transition: 'transform 0.15s',
+                    transform: showEstoque ? 'rotate(180deg)' : 'rotate(0deg)',
+                  }}
+                />
+              </button>
 
-          {/* Relatórios */}
-          {navBtn('/reports', 'Relatórios')}
+              {showEstoque && (
+                <div
+                  className="absolute top-full left-0 mt-1 rounded-lg overflow-hidden"
+                  style={{
+                    backgroundColor: '#0d2137',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                    minWidth: '180px',
+                    zIndex: 50,
+                  }}
+                >
+                  {visibleEstoqueItems.map(({ path, label, Icon }) => dropdownItem({ path, label, Icon }))}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Usuários */}
-          {navBtn('/users', 'Usuários')}
+          {/* Gerenciamento items */}
+          {visibleGerenciamentoItems.map(({ path, label, Icon }) => {
+            if (path === '/innovation') return navBtnWithIcon(path, label, Icon);
+            if (path === '/users') return navBtn(path, label);
+            return navBtn(path, label);
+          })}
+
         </nav>
 
         {/* Botão Sair - Desktop */}
@@ -214,21 +258,26 @@ export function Navbar() {
             zIndex: 50,
           }}
         >
-          <p className="px-5 pt-4 pb-2" style={{ fontSize: '11px', fontWeight: 700, color: '#6a92b0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Navegação
-          </p>
-          {mobileItem({ path: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard })}
+          {visibleMainItems.length > 0 && (
+            <>
+              {sectionHeader('Navegação')}
+              {visibleMainItems.map(mobileItem)}
+            </>
+          )}
 
-          <p className="px-5 pt-4 pb-2" style={{ fontSize: '11px', fontWeight: 700, color: '#6a92b0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Estoque
-          </p>
-          {ESTOQUE_ITEMS.map(mobileItem)}
+          {visibleEstoqueItems.length > 0 && (
+            <>
+              {sectionHeader('Estoque')}
+              {visibleEstoqueItems.map(mobileItem)}
+            </>
+          )}
 
-          <p className="px-5 pt-4 pb-2" style={{ fontSize: '11px', fontWeight: 700, color: '#6a92b0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Gerenciamento
-          </p>
-          {mobileItem({ path: '/reports', label: 'Relatórios', Icon: BarChart3 })}
-          {mobileItem({ path: '/users', label: 'Usuários', Icon: Users })}
+          {visibleGerenciamentoItems.length > 0 && (
+            <>
+              {sectionHeader('Gerenciamento')}
+              {visibleGerenciamentoItems.map(mobileItem)}
+            </>
+          )}
 
           <div className="p-4">
             <Button
