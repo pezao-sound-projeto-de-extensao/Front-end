@@ -1,3 +1,5 @@
+import SessionExpiredModal from './SessionExpiredModal';
+
 export default function SessionModalBridge() {
-  return null;
+  return <SessionExpiredModal />;
 }

@@ -6,14 +6,17 @@ export const authService = {
     return response.data;
   },
 
-  refreshToken: async (refreshToken) => {
-    const response = await api.post('/auth/refresh', { refreshToken });
+  refreshToken: async () => {
+    const response = await api.post('/auth/refresh', {});
     return response.data;
   },
 
-  logout: async (refreshToken) => {
-    const response = await api.post('/auth/logout', { refreshToken });
-    return response.data;
+  logout: async () => {
+    try {
+      await api.post('/auth/logout', {});
+    } catch (error) {
+      console.error('Erro ao fazer logout no backend:', error);
+    }
   },
 
   trocarSenha: async ({ email, senhaAtual, senhaNova }) => {

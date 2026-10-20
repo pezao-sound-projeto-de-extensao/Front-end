@@ -36,7 +36,7 @@ export default function useCrudForm({ initialData, validate, service, loadData, 
   }, [resetForm]);
 
   const handleSave = useCallback(async (mapToPayload) => {
-    const validationErrors = validate?.(formData) || {};
+    const validationErrors = validate?.(formData, editMode) || {};
     setErrors(validationErrors);
 
     if (Object.values(validationErrors).some(v => v)) return;

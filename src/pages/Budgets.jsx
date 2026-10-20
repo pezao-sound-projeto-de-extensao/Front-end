@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, FileText, CheckCircle, XCircle, UserPlus, ChevronDown, Search as SearchIcon, Eye } from 'lucide-react';
+import { Plus, Trash2, FileText, CheckCircle, XCircle, ChevronDown, Search as SearchIcon, Eye } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { orcamentoService } from '../services/orcamentoService';
@@ -11,7 +11,7 @@ import FilterSelect from '../components/FilterSelect';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import FormPanel from '../components/FormPanel';
-import FormField, { FormInput, FormSelect, FormTextarea } from '../components/FormField';
+import FormField, { FormInput, FormTextarea, FormPhone } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
@@ -49,7 +49,6 @@ function AutocompleteSelect({
   onNewOption,
   disabled,
   error,
-  required,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -205,7 +204,6 @@ export default function Budgets() {
   const [clientSearchDebounce, setClientSearchDebounce] = useState('');
   const [showNewClientFields, setShowNewClientFields] = useState(false);
   const [productSearchDebounce, setProductSearchDebounce] = useState({});
-  const [showNewProductFields, setShowNewProductFields] = useState({});
   const clientSearchTimeoutRef = useRef(null);
   const productSearchTimeoutRef = useRef({});
   const [editingBudgetId, setEditingBudgetId] = useState(null);
@@ -529,7 +527,7 @@ export default function Budgets() {
                 />
               </FormField>
               <FormField label="Telefone">
-                <FormInput
+                <FormPhone
                   placeholder="(11) 99999-8888"
                   value={formData.clienteNovo?.telefone || ''}
                   onChange={(e) => setFormData({ ...formData, clienteNovo: { ...formData.clienteNovo, telefone: e.target.value } })}

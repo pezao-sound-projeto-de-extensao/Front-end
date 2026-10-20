@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Minus, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight } from 'lucide-react';
+import { Plus, Minus, ArrowLeftRight } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { movimentacaoService } from '../services/movimentacaoService';
@@ -9,7 +9,7 @@ import FilterSelect from '../components/FilterSelect';
 import DataTable from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import FormPanel from '../components/FormPanel';
-import FormField, { FormInput, FormSelect } from '../components/FormField';
+import FormField, { FormInput, FormSelect, FormNumber, FormDate } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
@@ -216,11 +216,11 @@ export default function Movements() {
           </FormField>
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Quantidade" error={errors.quantidade}>
-              <FormInput type="number" min="1" value={formData.quantidade} onChange={(e) => { setFormData({ ...formData, quantidade: e.target.value }); handleClearField('quantidade'); }} error={errors.quantidade}
+              <FormNumber min="1" value={formData.quantidade} onChange={(e) => { setFormData({ ...formData, quantidade: e.target.value }); handleClearField('quantidade'); }} error={errors.quantidade}
                 placeholder={formData.tipo === 'entrada' ? 'Quantidade a adicionar' : 'Quantidade a retirar'} />
             </FormField>
             <FormField label="Data">
-              <FormInput type="date" value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} />
+              <FormDate value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} />
             </FormField>
           </div>
           <FormField label="Observação">

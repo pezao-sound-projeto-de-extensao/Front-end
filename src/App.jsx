@@ -16,6 +16,7 @@ import Encomendas from './pages/Encomendas'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
 import ChangePassword from './pages/ChangePassword'
+import Innovation from './pages/Innovation'
 
 export default function App() {
   return (
@@ -35,13 +36,42 @@ export default function App() {
               </ProtectedRoute>
             }>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/movements" element={<Movements />} />
-              <Route path="/budgets" element={<Budgets />} />
-              <Route path="/budgets/:id" element={<BudgetView />} />
-              <Route path="/orders" element={<Encomendas />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/users" element={<Users />} />
+              <Route path="/products" element={
+                <ProtectedRoute permissions={['CADASTRAR_ITENS', 'EDITAR_ITENS', 'EXCLUIR_ITENS']}>
+                  <Products />
+                </ProtectedRoute>
+              } />
+              <Route path="/movements" element={
+                <ProtectedRoute permissions={['REGISTRAR_ENTRADA', 'REGISTRAR_SAIDA']}>
+                  <Movements />
+                </ProtectedRoute>
+              } />
+              <Route path="/budgets" element={
+                <ProtectedRoute permissions={['GERENCIAR_ORCAMENTOS']}>
+                  <Budgets />
+                </ProtectedRoute>
+              } />
+              <Route path="/budgets/:id" element={
+                <ProtectedRoute permissions={['GERENCIAR_ORCAMENTOS']}>
+                  <BudgetView />
+                </ProtectedRoute>
+              } />
+              <Route path="/orders" element={
+                <ProtectedRoute permissions={['GERENCIAR_ENCOMENDAS']}>
+                  <Encomendas />
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute permissions={['VER_RELATORIOS']}>
+                  <Reports />
+                </ProtectedRoute>
+              } />
+              <Route path="/users" element={
+                <ProtectedRoute permissions={['GERENCIAR_USUARIOS']}>
+                  <Users />
+                </ProtectedRoute>
+              } />
+              <Route path="/innovation" element={<Innovation />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

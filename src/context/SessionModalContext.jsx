@@ -1,6 +1,16 @@
-import { createContext, useContext, useRef, useState, useCallback } from 'react';
+import { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react';
 
 const SessionModalContext = createContext(null);
+
+let globalOpenModal = null;
+
+export function setGlobalOpenModal(fn) {
+  globalOpenModal = fn;
+}
+
+export function getGlobalOpenModal() {
+  return globalOpenModal;
+}
 
 export function SessionModalProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -21,6 +31,11 @@ export function SessionModalProvider({ children }) {
     closeModal();
     fn?.();
   }, [closeModal]);
+
+  useEffect(() => {
+    setGlobalOpenModal(openModal);
+    return () => setGlobalOpenModal(null);
+  }, [openModal]);
 
   return (
     <SessionModalContext.Provider value={{ isOpen, openModal, closeModal, retry }}>
