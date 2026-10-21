@@ -126,6 +126,7 @@ export default function Products() {
   const existingImageUrl = editMode && currentItem?.photo && !deleteImage ? currentItem.photo : null;
 
   const handleSaveProduct = async () => {
+    const arquivo = fileInputRef.current?.files?.[0];
     const createdItem = await handleSave((data) => {
       const payload = {
         nome: data.nome.trim(), 
@@ -140,7 +141,8 @@ export default function Products() {
       }
       return payload;
     });
-    
+    if (createdItem === undefined) return;
+
     // Registrar entrada inicial se for um novo produto com quantidade > 0
     if (!editMode && createdItem?.id && parseInt(formData.quantidadeAtual) > 0) {
       try {
@@ -156,14 +158,14 @@ export default function Products() {
       }
     }
 
-    if (fileInputRef.current?.files?.[0]) {
-      const targetId = createdItem?.id || currentItem?.id;
-      if (targetId) {
-        await imagemProdutoService.upload(targetId, fileInputRef.current.files[0]);
-      }
-    } else if (editMode && deleteImage && currentItem?.photo) {
-      await imagemProdutoService.deletar(currentItem?.id);
-    }
+    try {
+      if (arquivo) {
+        await imagemProdutoService.upload(createdItem?.id || currentItem.id, arquivo);
+      } else if (editMode && deleteImage && currentItem?.photo) {
+        await imagemProdutoService.deletar(currentItem.id);
+      } else return;
+      await loadProducts();
+    } catch (err) { showApiError(err); }
   };
 
   const confirmDelete = async () => {
