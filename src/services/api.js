@@ -42,7 +42,7 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const requestUrl = error.config?.url || '';
     const isAuthMe = requestUrl.includes('/auth/me');
-    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh') || requestUrl.includes('/auth/logout') || requestUrl.includes('/auth/trocar-senha');
+    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh') || requestUrl.includes('/auth/logout') || requestUrl.includes('/auth/trocar-senha') || requestUrl.includes('/auth/esqueci-senha') || requestUrl.includes('/auth/redefinir-senha');
 
     if (status === 403 && isAuthMe) {
       return Promise.reject(error);
