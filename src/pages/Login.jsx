@@ -121,7 +121,7 @@ export default function Login() {
                   Senha
                 </label>
                 <a
-                  href="/change-password"
+                  href="/esqueci-senha"
                   style={{ fontSize: '12px', color: '#1c8bc0', fontWeight: '500', textDecoration: 'none' }}
                 >
                   Esqueceu sua senha?
