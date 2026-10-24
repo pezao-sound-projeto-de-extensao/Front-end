@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react';
-import { env } from '../config';
 import { Plus, Camera, ZoomIn, Package } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -93,6 +92,8 @@ export default function Products() {
     const qtd = p.quantidadeAtual || 0;
     const min = p.quantidadeMinima || 0;
     let status = p.status;
+    const iconUrl = p.imagem?.url ? imagemProdutoService.getIconUrl(p.id) : null;
+    const fullUrl = p.imagem?.url ? imagemProdutoService.getFullUrl(p.id) : null;
     return {
       id: p.id, name: p.nome, category: p.categoriaNome || '', categoryId: p.categoriaId,
       unit: p.unidadeNome ? `${p.unidadeNome} (${p.unidadeAbreviacao})` : '', unitId: p.unidadeId,
@@ -100,7 +101,8 @@ export default function Products() {
       costPrice: p.precoCusto ? `R$ ${p.precoCusto.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
       salePrice: p.precoVenda ? `R$ ${p.precoVenda.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
       status,
-      photo: p.imagem?.url === undefined ? null : env('VITE_API_BASE_URL') + p.imagem?.url,
+      photo: iconUrl,
+      photoFull: fullUrl,
       ativo: p.ativo,
       precoCustoRaw: p.precoCusto, precoVendaRaw: p.precoVenda,
     };
@@ -192,7 +194,7 @@ export default function Products() {
     {
       header: 'Foto', accessor: 'photo', width: '64px',
       render: (row) => row.photo ? (
-        <button type="button" onClick={() => setViewPhoto(row.photo)} className="relative group" style={{ display: 'block' }}>
+        <button type="button" onClick={() => setViewPhoto(row.photoFull)} className="relative group" style={{ display: 'block' }}>
           <img src={row.photo} alt={row.name} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid #d0dde8' }} />
           <div className="absolute inset-0 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: 'rgba(21,101,192,0.55)' }}>
             <ZoomIn style={{ width: '16px', height: '16px', color: '#fff' }} />

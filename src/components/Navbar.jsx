@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { hasRouteAccess } from '../config/routePermissions';
+import logo from '../assets/logo.png';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, group: 'main' },
@@ -13,7 +14,6 @@ const NAV_ITEMS = [
   { path: '/orders', label: 'Encomendas', Icon: ShoppingBag, group: 'estoque' },
   { path: '/reports', label: 'Relatórios', Icon: BarChart3, group: 'gerenciamento' },
   { path: '/users', label: 'Usuários', Icon: Users, group: 'gerenciamento' },
-  { path: '/innovation', label: 'Inovação', Icon: Bot, group: 'gerenciamento' },
 ];
 
 export function Navbar() {
@@ -147,6 +147,7 @@ export function Navbar() {
 
         {/* Logo */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
+          <img src={logo} alt="StockFlow" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
           <span style={{ fontSize: '18px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.3px' }}>
             Stock<span style={{ color: '#2dbae1' }}>Flow</span>
           </span>

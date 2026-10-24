@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/logo.png';
 
 export default function Login() {
   const { login } = useAuth();
@@ -51,13 +52,14 @@ export default function Login() {
           <div
             className="mb-4 flex items-center justify-center"
             style={{
-              width: '88px',
-              height: '88px',
-              borderRadius: '22px',
+              width: '104px',
+              height: '104px',
+              borderRadius: '26px',
               backgroundColor: 'rgba(255,255,255,0.15)',
               border: '1.5px solid rgba(255,255,255,0.25)',
             }}
           >
+            <img src={logo} alt="StockFlow" style={{ width: '72px', height: '72px', objectFit: 'contain' }} />
           </div>
           <h1
             style={{
