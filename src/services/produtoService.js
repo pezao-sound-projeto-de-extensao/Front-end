@@ -44,6 +44,17 @@ export const unidadeService = {
   },
 };
 
+let baseUrlCache = null;
+
+const getBaseUrl = () => {
+  if (!baseUrlCache) {
+    baseUrlCache = typeof window !== 'undefined' 
+      ? (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+      : '';
+  }
+  return baseUrlCache;
+};
+
 export const imagemProdutoService = {
   upload: async (itemId, arquivo) => {
     const formData = new FormData();
@@ -57,6 +68,20 @@ export const imagemProdutoService = {
   deletar: async (itemId) => {
     const response = await api.delete(`/itens/${itemId}/imagem`);
     return response.data;
+  },
+
+  baixarUrl: (itemId, tipo = 'full') => {
+    return `/itens/${itemId}/imagem/download?tipo=${tipo}`;
+  },
+
+  getIconUrl: (itemId) => {
+    const base = getBaseUrl();
+    return base ? `${base}/itens/${itemId}/imagem/download?tipo=icon` : null;
+  },
+
+  getFullUrl: (itemId) => {
+    const base = getBaseUrl();
+    return base ? `${base}/itens/${itemId}/imagem/download?tipo=full` : null;
   },
 };
 
