@@ -18,12 +18,8 @@ export default function Login() {
       try {
         await login(email, password);
         navigate('/dashboard');
-      } catch (err) {
-        if (err.response?.status === 403) {
-          navigate('/change-password', { state: { email } });
-        } else {
-          setError('E-mail ou senha inválidos');
-        }
+      } catch {
+        setError('E-mail ou senha inválidos');
         setLoading(false);
       }
     }

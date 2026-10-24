@@ -24,12 +24,8 @@ export default function SessionExpiredModal() {
       await login(email, password);
       setLoading(false);
       retry();
-    } catch (err) {
-      if (err.response?.status === 403) {
-        setError('Primeiro acesso — altere sua senha no menu.');
-      } else {
-        setError('E-mail ou senha inválidos');
-      }
+    } catch {
+      setError('E-mail ou senha inválidos');
       setLoading(false);
     }
   };

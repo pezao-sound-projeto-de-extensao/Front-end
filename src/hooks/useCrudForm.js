@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { showApiSuccess, showApiError } from '../lib/apiError';
 
-export default function useCrudForm({ initialData, validate, service, loadData, onSuccess }) {
+export default function useCrudForm({ initialData, validate, service, loadData, onSuccess, successMessage }) {
   const [showForm, setShowForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
@@ -52,7 +52,7 @@ export default function useCrudForm({ initialData, validate, service, loadData, 
       }
       await loadData();
       handleCancel();
-      showApiSuccess(editMode ? 'Item atualizado com sucesso!' : 'Item cadastrado com sucesso!');
+      showApiSuccess(successMessage?.(createdItem, editMode) ?? (editMode ? 'Item atualizado com sucesso!' : 'Item cadastrado com sucesso!'));
       onSuccess?.();
       return createdItem;
     } catch (err) {
@@ -64,7 +64,7 @@ export default function useCrudForm({ initialData, validate, service, loadData, 
     } finally {
       setSaving(false);
     }
-  }, [formData, editMode, currentItem, service, loadData, handleCancel, onSuccess, validate]);
+  }, [formData, editMode, currentItem, service, loadData, handleCancel, onSuccess, successMessage, validate]);
 
   const handleClearField = useCallback((field) => {
     setErrors(prev => ({ ...prev, [field]: false }));
