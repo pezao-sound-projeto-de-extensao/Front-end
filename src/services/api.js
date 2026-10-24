@@ -64,8 +64,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await authService.refreshToken();
-        const { accessToken } = response.data;
+        const { accessToken } = await authService.refreshToken();
         isRefreshing = false;
         processQueue(null, accessToken);
 
@@ -75,7 +74,8 @@ api.interceptors.response.use(
         isRefreshing = false;
         processQueue(refreshError, null);
 
-        if (window.location.pathname !== '/login') {
+        // /auth/me falhando no carregamento só significa que não há sessão; o ProtectedRoute manda para o login
+        if (window.location.pathname !== '/login' && !isAuthMe) {
           openSessionExpiredModal(() => {
             window.location.href = '/login';
           });
