@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, User, Briefcase, Users as UsersIcon } from 'lucide-react';
+import { Plus, User, Briefcase, KeyRound, Users as UsersIcon } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { usuarioService } from '../services/usuarioService';
+import { authService } from '../services/authService';
 import { cargoService } from '../services/cargoService';
 import { permissaoService } from '../services/permissaoService';
 import PageLayout from '../components/PageLayout';
@@ -12,6 +13,7 @@ import StatusBadge from '../components/StatusBadge';
 import FormPanel from '../components/FormPanel';
 import FormField, { FormInput, FormSelect } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
+import ConfirmModal from '../components/ConfirmModal';
 import useCrudForm from '../hooks/useCrudForm';
 import { formatDateTime } from '../lib/formatters';
 import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
@@ -41,6 +43,7 @@ export default function Users() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('Todos');
   const [statusFilter, setStatusFilter] = useState('ativo');
+  const [resetModal, setResetModal] = useState({ open: false, user: null });
 
   const userForm = useCrudForm({
     initialData: { name: '', email: '', cargoId: '' },
@@ -51,6 +54,9 @@ export default function Users() {
     }),
     service: usuarioService,
     loadData: loadData,
+    successMessage: (criado) => criado?.conviteEnviado
+      ? `Usuário cadastrado! Enviamos um e-mail para ${criado.email} criar a senha.`
+      : undefined,
   });
 
   const cargoForm = useCrudForm({
@@ -109,6 +115,16 @@ export default function Users() {
     } catch (err) {
       showApiError(err, USER_FIELDS);
     }
+  };
+
+  const confirmResetarSenha = async () => {
+    try {
+      await authService.resetarSenha(resetModal.user.id);
+      showApiSuccess(`Senha resetada! Enviamos um e-mail para ${resetModal.user.email} criar uma nova.`);
+    } catch (err) {
+      showApiError(err, USER_FIELDS);
+    }
+    setResetModal({ open: false, user: null });
   };
 
   const handleSaveUser = () => {
@@ -170,6 +186,7 @@ export default function Users() {
       render: (row) => (
         <div className="flex justify-end gap-3">
           <Button variant="ghost" size="sm" onClick={() => handleEditUser(row)} style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}>Editar</Button>
+          <Button variant="ghost" size="sm" onClick={() => setResetModal({ open: true, user: row })} style={{ fontSize: '12px', fontWeight: 'bold', color: '#e07b00' }}>Resetar senha</Button>
           <Button variant="ghost" size="sm" onClick={() => handleToggleAtivo(row.id)} style={{ fontSize: '12px', fontWeight: 'bold', color: row.status === 'ativo' ? '#e84040' : '#1e9e5e' }}>
             {row.status === 'ativo' ? 'Desativar' : 'Ativar'}
           </Button>
@@ -280,6 +297,16 @@ export default function Users() {
           </div>
 
           <DataTable columns={userColumns} data={filteredUsers} loading={loading} emptyMessage="Nenhum usuário encontrado" ativoAccessor="status" />
+          <ConfirmModal
+            isOpen={resetModal.open}
+            onClose={() => setResetModal({ open: false, user: null })}
+            onConfirm={confirmResetarSenha}
+            title="Resetar senha"
+            message={`A senha atual de ${resetModal.user?.name ?? ''} deixará de funcionar e um link para criar uma nova será enviado para ${resetModal.user?.email ?? ''}.`}
+            confirmLabel="Resetar"
+            confirmVariant="destructive"
+            icon={<KeyRound style={{ width: '20px', height: '20px', color: '#e84040' }} />}
+          />
         </>
       )}
 

@@ -42,7 +42,7 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const requestUrl = error.config?.url || '';
     const isAuthMe = requestUrl.includes('/auth/me');
-    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh') || requestUrl.includes('/auth/logout') || requestUrl.includes('/auth/trocar-senha');
+    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh') || requestUrl.includes('/auth/logout') || requestUrl.includes('/auth/trocar-senha') || requestUrl.includes('/auth/esqueci-senha') || requestUrl.includes('/auth/redefinir-senha');
 
     if (status === 403 && isAuthMe) {
       return Promise.reject(error);
@@ -85,16 +85,6 @@ api.interceptors.response.use(
     }
 
     if (status === 403 && !isAuthMe && !isAuthEndpoint) {
-      const { detail } = error.response?.data || {};
-      const isPrimeiroAcesso = detail?.includes?.('Primeiro acesso') || detail?.includes?.('primeiro acesso');
-
-      if (isPrimeiroAcesso) {
-        if (window.location.pathname !== '/change-password') {
-          window.location.href = '/change-password';
-        }
-        return Promise.reject(error);
-      }
-
       showApiError(error);
     }
 

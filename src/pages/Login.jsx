@@ -18,12 +18,8 @@ export default function Login() {
       try {
         await login(email, password);
         navigate('/dashboard');
-      } catch (err) {
-        if (err.response?.status === 403) {
-          navigate('/change-password', { state: { email } });
-        } else {
-          setError('E-mail ou senha inválidos');
-        }
+      } catch {
+        setError('E-mail ou senha inválidos');
         setLoading(false);
       }
     }
@@ -121,7 +117,7 @@ export default function Login() {
                   Senha
                 </label>
                 <a
-                  href="/change-password"
+                  href="/esqueci-senha"
                   style={{ fontSize: '12px', color: '#1c8bc0', fontWeight: '500', textDecoration: 'none' }}
                 >
                   Esqueceu sua senha?

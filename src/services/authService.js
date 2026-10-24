@@ -28,6 +28,14 @@ export const authService = {
     const response = await api.put(`/auth/resetar-senha/${id}`);
     return response.data;
   },
+
+  esqueciSenha: async (email) => {
+    await api.post('/auth/esqueci-senha', { email });
+  },
+
+  redefinirSenha: async ({ token, senhaNova }) => {
+    await api.post('/auth/redefinir-senha', { token, senhaNova });
+  },
 };
 
 export default authService;

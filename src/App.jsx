@@ -16,6 +16,8 @@ import Encomendas from './pages/Encomendas'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
 import ChangePassword from './pages/ChangePassword'
+import EsqueciSenha from './pages/EsqueciSenha'
+import RedefinirSenha from './pages/RedefinirSenha'
 import Innovation from './pages/Innovation'
 
 export default function App() {
@@ -29,6 +31,8 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
             <Route element={
               <ProtectedRoute>
