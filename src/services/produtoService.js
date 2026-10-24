@@ -49,7 +49,7 @@ let baseUrlCache = null;
 const getBaseUrl = () => {
   if (!baseUrlCache) {
     baseUrlCache = typeof window !== 'undefined' 
-      ? (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+      ? (window._env_?.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
       : '';
   }
   return baseUrlCache;
