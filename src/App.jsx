@@ -18,7 +18,6 @@ import Users from './pages/Users'
 import ChangePassword from './pages/ChangePassword'
 import EsqueciSenha from './pages/EsqueciSenha'
 import RedefinirSenha from './pages/RedefinirSenha'
-import Innovation from './pages/Innovation'
 
 export default function App() {
   return (
@@ -75,7 +74,6 @@ export default function App() {
                   <Users />
                 </ProtectedRoute>
               } />
-              <Route path="/innovation" element={<Innovation />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

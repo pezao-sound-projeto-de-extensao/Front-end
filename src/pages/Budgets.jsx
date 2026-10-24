@@ -203,6 +203,7 @@ export default function Budgets() {
   const [rejeitarModal, setRejeitarModal] = useState({ open: false, id: null });
   const [clientSearchDebounce, setClientSearchDebounce] = useState('');
   const [showNewClientFields, setShowNewClientFields] = useState(false);
+  const [showNewProductFields, setShowNewProductFields] = useState(false);
   const [productSearchDebounce, setProductSearchDebounce] = useState({});
   const clientSearchTimeoutRef = useRef(null);
   const productSearchTimeoutRef = useRef({});
@@ -331,13 +332,7 @@ export default function Budgets() {
   });
 
   const handleProductSelect = (index, itemId) => {
-    if (itemId === 'novo') {
-      setShowNewProductFields(prev => ({ ...prev, [index]: true }));
-      setFormData(prev => ({
-        ...prev,
-        itens: prev.itens.map((item, i) => i === index ? { ...item, itemId: '', descricao: '', precoUnitario: 0, isNewProduct: true } : item),
-      }));
-    } else {
+    if (itemId === 'novo') {c} else {
       setShowNewProductFields(prev => ({ ...prev, [index]: false }));
       const product = products.find(p => p.id === parseInt(itemId));
       setFormData(prev => ({

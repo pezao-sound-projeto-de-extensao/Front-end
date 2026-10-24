@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ShoppingBag, Truck, CheckCircle, Package } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { encomendaService } from '../services/encomendaService';
+import { imagemProdutoService } from '../services/produtoService';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
@@ -131,8 +132,8 @@ export default function Encomendas() {
       header: 'Foto',
       accessor: 'fotoUrl',
       width: '64px',
-      render: (row) => row.fotoUrl ? (
-        <img src={row.fotoUrl} alt={row.descricao} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid #d0dde8' }} />
+      render: (row) => row.itemId && row.fotoUrl ? (
+        <img src={imagemProdutoService.getIconUrl(row.itemId)} alt={row.descricao} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid #d0dde8' }} />
       ) : (
         <div className="rounded-lg flex items-center justify-center" style={{ width: '44px', height: '44px', backgroundColor: '#e2eaf3', border: '1.5px dashed #c0d0df' }}>
           <Package style={{ width: '18px', height: '18px', color: '#6a92b0' }} />
