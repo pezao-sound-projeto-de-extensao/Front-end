@@ -85,16 +85,6 @@ api.interceptors.response.use(
     }
 
     if (status === 403 && !isAuthMe && !isAuthEndpoint) {
-      const { detail } = error.response?.data || {};
-      const isPrimeiroAcesso = detail?.includes?.('Primeiro acesso') || detail?.includes?.('primeiro acesso');
-
-      if (isPrimeiroAcesso) {
-        if (window.location.pathname !== '/change-password') {
-          window.location.href = '/change-password';
-        }
-        return Promise.reject(error);
-      }
-
       showApiError(error);
     }
 
