@@ -1,40 +1,15 @@
 import { api } from './api';
+import { absoluteUrl, createResource, data, uploadFile } from './resource';
 
 export const itemService = {
-  listar: async (params = {}) => {
-    const response = await api.get('/itens', { params });
-    return response.data;
-  },
-
-  buscarPorId: async (id) => {
-    const response = await api.get(`/itens/${id}`);
-    return response.data;
-  },
-
-  criar: async (data) => {
-    const response = await api.post('/itens', data);
-    return response.data;
-  },
-
-  atualizar: async (id, data) => {
-    const response = await api.put(`/itens/${id}`, data);
-    return response.data;
-  },
-
-  inativar: async (id) => {
-    const response = await api.patch(`/itens/${id}/inativar`);
-    return response.data;
-  },
-
-  reativar: async (id) => {
-    const response = await api.patch(`/itens/${id}/reativar`);
-    return response.data;
-  },
-
-  buscarPorAlerta: async (params = {}) => {
-    const response = await api.get('/itens', { params: { ...params, apenasAlerta: true } });
-    return response.data;
-  }
+  ...createResource('/itens', ['listar', 'buscarPorId', 'criar', 'atualizar']),
+  inativar: (id) => data(api.patch(`/itens/${id}/inativar`)),
+  reativar: (id) => data(api.patch(`/itens/${id}/reativar`)),
 };
 
-export default itemService;
+export const imagemProdutoService = {
+  upload: (itemId, arquivo) => uploadFile(`/itens/${itemId}/imagem`, arquivo),
+  deletar: (itemId) => data(api.delete(`/itens/${itemId}/imagem`)),
+  /** tipo: 'icon' (miniatura) ou 'full' */
+  url: (itemId, tipo = 'full') => absoluteUrl(`/itens/${itemId}/imagem/download?tipo=${tipo}`),
+};

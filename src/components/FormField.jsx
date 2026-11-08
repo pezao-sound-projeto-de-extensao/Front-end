@@ -1,248 +1,99 @@
-import React from 'react';
-import { applyMask, MASKS, getMaskPlaceholder } from '../lib/masks';
+import { Children, cloneElement, isValidElement, useId, useState } from 'react';
+import { applyMask, getMaskPlaceholder, unmaskValue } from '../lib/masks';
+import { cn } from '../lib/utils';
 
-export default function FormField({ label, error, children, hint }) {
+const NATIVE_FIELDS = new Set(['input', 'select', 'textarea']);
+
+function asFieldElement(children) {
+  if (Children.count(children) !== 1 || !isValidElement(children)) return null;
+  const { type } = children;
+  return typeof type === 'string' ? (NATIVE_FIELDS.has(type) ? children : null) : children;
+}
+
+/**
+ * Agrupa label, campo, dica e erro. Quando o filho é um único campo,
+ * associa o label a ele (htmlFor/id) e repassa o erro para marcar aria-invalid.
+ */
+export default function FormField({ label, error, hint, children, className }) {
+  const generatedId = useId();
+  const field = asFieldElement(children);
+  const fieldId = field?.props.id ?? generatedId;
+
+  let content = children;
+  if (field) {
+    const isComponent = typeof field.type !== 'string';
+    content = cloneElement(field, {
+      id: fieldId,
+      ...(isComponent ? { error: field.props.error ?? error } : { 'aria-invalid': Boolean(error) }),
+    });
+  }
+
   return (
-    <div>
-      <label className="block mb-2 uppercase" style={{ fontSize: '12px', color: '#5a82a0', fontWeight: '600' }}>{label}</label>
-      {children}
-      {error && <p style={{ fontSize: '11px', color: '#e84040', marginTop: '4px' }}>{typeof error === 'string' ? error : 'Campo obrigatório'}</p>}
-      {hint && !error && <p style={{ fontSize: '11px', color: '#6a92b0', marginTop: '4px' }}>{hint}</p>}
+    <div className={className}>
+      {label && <label htmlFor={field ? fieldId : undefined} className="field-label">{label}</label>}
+      {content}
+      {error && <p className="field-error" role="alert">{typeof error === 'string' ? error : 'Campo obrigatório'}</p>}
+      {hint && !error && <p className="field-hint">{hint}</p>}
     </div>
   );
 }
 
-const inputBaseStyle = {
-  backgroundColor: 'var(--bg-input)',
-  borderWidth: '1.5px',
-  borderStyle: 'solid',
-  borderColor: 'var(--border-subtle)',
-  borderRadius: '8px',
-  padding: '10px 14px',
-  fontSize: '14px',
-  color: 'var(--text-primary)',
-  transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
-  width: '100%',
-  boxSizing: 'border-box',
-};
-
-const focusStyle = {
-  borderColor: '#1565c0',
-  boxShadow: '0 0 0 3px rgba(21,101,192,0.15)',
-  outline: 'none',
-};
-
-const errorStyle = {
-  borderColor: '#e84040',
-  boxShadow: '0 0 0 3px rgba(232,64,64,0.15)',
-};
-
-const disabledStyle = {
-  backgroundColor: 'var(--bg-input)',
-  opacity: 0.6,
-  cursor: 'not-allowed',
-};
-
-const hoverStyle = {
-  borderColor: '#1c8bc0',
-};
-
-function getInputStyle({ error, disabled, hasFocus, isHovered }) {
-  if (disabled) return { ...inputBaseStyle, ...disabledStyle };
-  if (error) return { ...inputBaseStyle, ...errorStyle };
-  if (hasFocus) return { ...inputBaseStyle, ...focusStyle };
-  if (isHovered) return { ...inputBaseStyle, ...hoverStyle };
-  return inputBaseStyle;
+export function FormInput({ error, className, ...props }) {
+  return <input {...props} aria-invalid={Boolean(error)} className={cn('field', className)} />;
 }
 
-export function FormInput({ error, disabled, onFocus, onBlur, onMouseEnter, onMouseLeave, ...props }) {
-  const [hasFocus, setHasFocus] = React.useState(false);
-  const [isHovered, setIsHovered] = React.useState(false);
-
-  const handleFocus = (e) => {
-    setHasFocus(true);
-    onFocus?.(e);
-  };
-  const handleBlur = (e) => {
-    setHasFocus(false);
-    setIsHovered(false);
-    onBlur?.(e);
-  };
-  const handleMouseEnter = (e) => {
-    setIsHovered(true);
-    onMouseEnter?.(e);
-  };
-  const handleMouseLeave = (e) => {
-    setIsHovered(false);
-    onMouseLeave?.(e);
-  };
-
+export function FormSelect({ error, className, children, ...props }) {
   return (
-    <input
-      {...props}
-      disabled={disabled}
-      className={`w-full rounded-lg ${props.className || ''}`}
-      style={getInputStyle({ error, disabled, hasFocus, isHovered })}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    />
-  );
-}
-
-export function FormSelect({ error, disabled, children, onFocus, onBlur, onMouseEnter, onMouseLeave, ...props }) {
-  const [hasFocus, setHasFocus] = React.useState(false);
-  const [isHovered, setIsHovered] = React.useState(false);
-
-  const handleFocus = (e) => {
-    setHasFocus(true);
-    onFocus?.(e);
-  };
-  const handleBlur = (e) => {
-    setHasFocus(false);
-    setIsHovered(false);
-    onBlur?.(e);
-  };
-  const handleMouseEnter = (e) => {
-    setIsHovered(true);
-    onMouseEnter?.(e);
-  };
-  const handleMouseLeave = (e) => {
-    setIsHovered(false);
-    onMouseLeave?.(e);
-  };
-
-  return (
-    <select
-      {...props}
-      disabled={disabled}
-      className={`w-full rounded-lg ${props.className || ''}`}
-      style={getInputStyle({ error, disabled, hasFocus, isHovered })}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <select {...props} aria-invalid={Boolean(error)} className={cn('field cursor-pointer', className)}>
       {children}
     </select>
   );
 }
 
-export function FormTextarea({ error, disabled, onFocus, onBlur, onMouseEnter, onMouseLeave, ...props }) {
-  const [hasFocus, setHasFocus] = React.useState(false);
-  const [isHovered, setIsHovered] = React.useState(false);
+export function FormTextarea({ error, className, ...props }) {
+  return <textarea {...props} aria-invalid={Boolean(error)} className={cn('field min-h-20 resize-y', className)} />;
+}
 
-  const handleFocus = (e) => {
-    setHasFocus(true);
-    onFocus?.(e);
+const NUMERIC_MASKS = new Set(['cpf', 'cnpj', 'phone', 'cep', 'number', 'currency']);
+
+function MaskedInput({ mask, value, onChange, onBlur, error, className, ...props }) {
+  const [displayValue, setDisplayValue] = useState(value ?? '');
+
+  // Mantém o campo sincronizado quando o valor muda de fora (ex.: abrir edição)
+  const [lastValue, setLastValue] = useState(value);
+  if (value !== lastValue) {
+    setLastValue(value);
+    if (value !== undefined) setDisplayValue(value);
+  }
+
+  const handleChange = (e) => {
+    const formatted = applyMask(e.target.value, mask);
+    setDisplayValue(formatted);
+    onChange?.({ target: { ...e.target, value: formatted }, rawValue: unmaskValue(formatted, mask) });
   };
+
   const handleBlur = (e) => {
-    setHasFocus(false);
-    setIsHovered(false);
-    onBlur?.(e);
-  };
-  const handleMouseEnter = (e) => {
-    setIsHovered(true);
-    onMouseEnter?.(e);
-  };
-  const handleMouseLeave = (e) => {
-    setIsHovered(false);
-    onMouseLeave?.(e);
+    onBlur?.({ target: { ...e.target, value: unmaskValue(displayValue, mask) } });
   };
 
   return (
-    <textarea
+    <input
+      placeholder={getMaskPlaceholder(mask)}
       {...props}
-      disabled={disabled}
-      className={`w-full rounded-lg ${props.className || ''}`}
-      style={{
-        ...getInputStyle({ error, disabled, hasFocus, isHovered }),
-        resize: 'vertical',
-        minHeight: '80px',
-      }}
-      onFocus={handleFocus}
+      type="text"
+      inputMode={NUMERIC_MASKS.has(mask) ? 'numeric' : 'text'}
+      value={displayValue}
+      onChange={handleChange}
       onBlur={handleBlur}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      aria-invalid={Boolean(error)}
+      className={cn('field', className)}
     />
   );
 }
 
-function createMaskedInput(maskType) {
-  const mask = MASKS[maskType];
-  const placeholder = getMaskPlaceholder(maskType);
-
-  return function MaskedInput({ value, onChange, error, disabled, onBlur, ...props }) {
-    const [hasFocus, setHasFocus] = React.useState(false);
-    const [isHovered, setIsHovered] = React.useState(false);
-    const [displayValue, setDisplayValue] = React.useState(value || '');
-
-    React.useEffect(() => {
-      if (value !== undefined) {
-        setDisplayValue(value);
-      }
-    }, [value]);
-
-    const handleChange = (e) => {
-      const rawValue = e.target.value;
-      const formatted = applyMask(rawValue, maskType);
-      setDisplayValue(formatted);
-      onChange?.({ target: { ...e.target, value: formatted }, rawValue });
-    };
-
-    const handleBlur = (e) => {
-      setHasFocus(false);
-      setIsHovered(false);
-      const rawValue = unmaskValue(displayValue, maskType);
-      onBlur?.({ target: { ...e.target, value: rawValue } });
-    };
-
-    const handleFocus = () => {
-      setHasFocus(true);
-    };
-
-    const handleMouseEnter = () => setIsHovered(true);
-    const handleMouseLeave = () => setIsHovered(false);
-
-    return (
-      <input
-        {...props}
-        type="text"
-        disabled={disabled}
-        value={displayValue}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        onFocus={handleFocus}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        placeholder={placeholder}
-        className={`w-full rounded-lg ${props.className || ''}`}
-        style={getInputStyle({ error, disabled, hasFocus, isHovered })}
-        inputMode={mask.pattern.source.includes('d') ? 'numeric' : 'text'}
-      />
-    );
-  };
-}
-
-function unmaskValue(value, maskType) {
-  switch (maskType) {
-    case 'currency':
-      return parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
-    case 'cpf':
-    case 'cnpj':
-    case 'phone':
-    case 'cep':
-      return value.replace(/\D/g, '');
-    default:
-      return value.replace(/\D/g, '');
-  }
-}
-
-export const FormCPF = createMaskedInput('cpf');
-export const FormCNPJ = createMaskedInput('cnpj');
-export const FormPhone = createMaskedInput('phone');
-export const FormCEP = createMaskedInput('cep');
-export const FormCurrency = createMaskedInput('currency');
-export const FormDate = createMaskedInput('date');
-export const FormNumber = createMaskedInput('number');
+export const FormCPF = (props) => <MaskedInput mask="cpf" {...props} />;
+export const FormCNPJ = (props) => <MaskedInput mask="cnpj" {...props} />;
+export const FormPhone = (props) => <MaskedInput mask="phone" {...props} />;
+export const FormCEP = (props) => <MaskedInput mask="cep" {...props} />;
+export const FormCurrency = (props) => <MaskedInput mask="currency" {...props} />;
+export const FormNumber = (props) => <MaskedInput mask="number" {...props} />;

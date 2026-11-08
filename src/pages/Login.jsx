@@ -1,184 +1,76 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui/Button';
+import FormField, { FormInput } from '../components/FormField';
 import logo from '../assets/logo.png';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { user, loading: checkingSession, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Volta para a página que pediu o login (ProtectedRoute guarda em state.from)
+  const redirectTo = location.state?.from?.pathname ?? '/dashboard';
+
+  useEffect(() => {
+    document.title = 'Entrar · StockFlow';
+  }, []);
+
+  if (!checkingSession && user) return <Navigate to={redirectTo} replace />;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (email && password) {
-      setLoading(true);
-      setError('');
-      try {
-        await login(email, password);
-        navigate('/dashboard');
-      } catch {
-        setError('E-mail ou senha inválidos');
-        setLoading(false);
-      }
+    if (!email || !password) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await login(email, password);
+      navigate(redirectTo, { replace: true });
+    } catch {
+      setError('E-mail ou senha inválidos');
+      setSubmitting(false);
     }
   };
 
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center p-4"
-      style={{
-        background: 'linear-gradient(135deg, #021b2f 0%, #0b385a 55%, #1c5a80 100%)',
-      }}
-    >
-      <div
-        className="w-full max-w-md"
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '20px',
-          boxShadow: '0 24px 64px rgba(2, 27, 47, 0.55)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Topo com gradiente e logo */}
-        <div
-          className="flex flex-col items-center pt-10 pb-8 px-8"
-          style={{
-            background: 'linear-gradient(160deg, #0b385a 0%, #1c8bc0 100%)',
-          }}
-        >
-          <div
-            className="mb-4 flex items-center justify-center"
-            style={{
-              width: '104px',
-              height: '104px',
-              borderRadius: '26px',
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              border: '1.5px solid rgba(255,255,255,0.25)',
-            }}
-          >
-            <img src={logo} alt="StockFlow" style={{ width: '72px', height: '72px', objectFit: 'contain' }} />
+    <div className="flex min-h-screen w-full items-center justify-center bg-[linear-gradient(135deg,#021b2f_0%,#0b385a_55%,#1c5a80_100%)] p-4">
+      <main className="w-full max-w-md overflow-hidden rounded-[20px] bg-surface shadow-[0_24px_64px_rgba(2,27,47,0.55)]">
+        <div className="flex flex-col items-center bg-[linear-gradient(160deg,#0b385a_0%,#1c8bc0_100%)] px-8 pb-8 pt-10">
+          <div className="mb-4 flex h-[104px] w-[104px] items-center justify-center rounded-[26px] border-[1.5px] border-white/25 bg-white/15">
+            <img src={logo} alt="" className="h-[72px] w-[72px] object-contain" />
           </div>
-          <h1
-            style={{
-              fontSize: '30px',
-              fontWeight: '800',
-              color: '#ffffff',
-              letterSpacing: '-0.5px',
-              lineHeight: 1,
-            }}
-          >
-            Stock<span style={{ color: '#90e6ff' }}>Flow</span>
+          <h1 className="text-3xl font-extrabold leading-none tracking-tight text-white">
+            Stock<span className="text-[#90e6ff]">Flow</span>
           </h1>
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '6px' }}>
-            Sistema de Gerenciamento de Estoque
-          </p>
+          <p className="mt-1.5 text-sm text-white/60">Sistema de Gerenciamento de Estoque</p>
         </div>
 
-        {/* Formulário */}
-        <div className="px-8 py-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label
-                htmlFor="email"
-                style={{ fontSize: '13px', fontWeight: '600', color: '#1a3a55', display: 'block', marginBottom: '6px' }}
-              >
-                E-mail
-              </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  fontSize: '14px',
-                  color: '#1a3a55',
-                  backgroundColor: '#f4f8fc',
-                  border: '1.5px solid #d0dde8',
-                  borderRadius: '10px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                onFocus={(e) => (e.target.style.borderColor = '#1c8bc0')}
-                onBlur={(e) => (e.target.style.borderColor = '#d0dde8')}
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-5 px-8 py-8">
+          <FormField label="E-mail">
+            <FormInput type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
+          </FormField>
 
-            <div>
-              <div className="flex justify-between items-center" style={{ marginBottom: '6px' }}>
-                <label
-                  htmlFor="password"
-                  style={{ fontSize: '13px', fontWeight: '600', color: '#1a3a55' }}
-                >
-                  Senha
-                </label>
-                <a
-                  href="/esqueci-senha"
-                  style={{ fontSize: '12px', color: '#1c8bc0', fontWeight: '500', textDecoration: 'none' }}
-                >
-                  Esqueceu sua senha?
-                </a>
-              </div>
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '11px 14px',
-                  fontSize: '14px',
-                  color: '#1a3a55',
-                  backgroundColor: '#f4f8fc',
-                  border: '1.5px solid #d0dde8',
-                  borderRadius: '10px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                onFocus={(e) => (e.target.style.borderColor = '#1c8bc0')}
-                onBlur={(e) => (e.target.style.borderColor = '#d0dde8')}
-              />
-            </div>
+          <div>
+            <FormField label="Senha">
+              <FormInput type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+            </FormField>
+            <Link to="/esqueci-senha" className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+              Esqueceu sua senha?
+            </Link>
+          </div>
 
-            {error && (
-              <p style={{ color: '#e05252', fontSize: 12.5, margin: '-6px 0 10px' }}>
-                {error}
-              </p>
-            )}
+          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '13px',
-                fontSize: '15px',
-                fontWeight: '700',
-                color: '#ffffff',
-                backgroundColor: '#1565c0',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.75 : 1,
-                letterSpacing: '0.2px',
-                marginTop: '4px',
-              }}
-              onMouseEnter={(e) => { if (!loading) (e.currentTarget.style.backgroundColor = '#0d4fa8'); }}
-              onMouseLeave={(e) => { if (!loading) (e.currentTarget.style.backgroundColor = '#1565c0'); }}
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-          </form>
-        </div>
-      </div>
+          <Button type="submit" size="lg" disabled={submitting} className="w-full">
+            {submitting ? 'Entrando...' : 'Entrar'}
+          </Button>
+        </form>
+      </main>
     </div>
   );
 }

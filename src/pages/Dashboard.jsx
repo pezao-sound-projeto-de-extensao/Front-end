@@ -1,156 +1,206 @@
-import { useEffect, useState } from 'react';
-import { Plus, Minus, FileText, PackagePlus, LayoutDashboard } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ArrowLeftRight, Boxes, FileText, PackageCheck, PackagePlus, PackageX, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
 import { alertaService } from '../services/alertaService';
-import { itemService } from '../services/itemService';
+import { itemService, imagemProdutoService } from '../services/itemService';
 import { movimentacaoService } from '../services/movimentacaoService';
+import { useAuth } from '../context/AuthContext';
+import useApiData from '../hooks/useApiData';
+import { showApiError, showApiSuccess } from '../lib/apiError';
+import { todayISO } from '../lib/formatters';
+import PageLayout from '../components/PageLayout';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import KPICardGrid from '../components/KPICardGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
-import FormField, { FormSelect, FormNumber, FormDate } from '../components/FormField';
-import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
-import { env } from '../config';
+import ProductThumb from '../components/ProductThumb';
+import FormField, { FormInput, FormSelect, FormNumber, FormTextarea } from '../components/FormField';
+
+const createEntryForm = (itemId = '') => ({ itemId, quantidade: '', data: todayISO(), observacao: '' });
+
+// Zerados primeiro, depois os de estoque baixo
+const byUrgency = (a, b) => Number(b.tipoAlerta === 'zerado') - Number(a.tipoAlerta === 'zerado');
+
+async function fetchDashboard() {
+  const [alertas, itensPage] = await Promise.all([
+    alertaService.listar(),
+    itemService.listar({ size: 1000, ativo: true }),
+  ]);
+  return { alertas: [...alertas].sort(byUrgency), itens: itensPage.content ?? [] };
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Bom dia';
+  if (hour < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+function computeStats(itens) {
+  const zerados = itens.filter((i) => i.quantidadeAtual === 0).length;
+  const baixos = itens.filter((i) => i.quantidadeAtual > 0 && i.quantidadeAtual < i.quantidadeMinima).length;
+  return { total: itens.length, ok: itens.length - zerados - baixos, alerta: zerados + baixos, zerados };
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [productsInAlert, setProductsInAlert] = useState([]);
-  const [stats, setStats] = useState({ totalProducts: 0, okProducts: 0, alertProducts: 0, zeradosProducts: 0 });
-  const [allProducts, setAllProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showEntryModal, setShowEntryModal] = useState(false);
-  const [formData, setFormData] = useState({ productId: '', quantity: '', date: new Date().toISOString().split('T')[0], observation: '' });
-  const [errors, setErrors] = useState({ productId: false, quantity: false });
+  const { user, hasPermission } = useAuth();
+  const [entryForm, setEntryForm] = useState(null); // null = modal fechado
+  const [entryErrors, setEntryErrors] = useState({});
+  const [savingEntry, setSavingEntry] = useState(false);
 
-  const carregarDashboard = async () => {
-    try {
-      setLoading(true);
-      const [alertas, itens] = await Promise.all([alertaService.listar(), itemService.listar({ size: 1000 })]);
-      const alertasOrdenados = [...alertas].sort((a, b) => a.tipoAlerta === 'zerado' && b.tipoAlerta !== 'zerado' ? -1 : a.tipoAlerta !== 'zerado' && b.tipoAlerta === 'zerado' ? 1 : 0);
-      
-      const itensAtivos = itens.content?.filter(i => i.ativo) || itens.filter(i => i.ativo) || [];
-      const imageMap = new Map(itensAtivos.map(i => [i.id, i.imagem?.url ? env('VITE_API_BASE_URL') + i.imagem.url : null]));
-      
-      const enrichedAlerts = alertasOrdenados.map(alerta => ({
-        ...alerta,
-        imagemUrl: imageMap.get(alerta.itemId) || null,
-      }));
-      
-      setProductsInAlert(enrichedAlerts);
-      const total = itensAtivos.length;
-      const zerados = itensAtivos.filter(i => i.quantidadeAtual === 0).length;
-      const baixos = itensAtivos.filter(i => i.quantidadeAtual > 0 && i.quantidadeAtual < i.quantidadeMinima).length;
-      setStats({ totalProducts: total, okProducts: total - zerados - baixos, alertProducts: zerados + baixos, zeradosProducts: zerados });
-      setAllProducts(itensAtivos.map(i => ({ id: i.id, name: i.nome, currentStock: i.quantidadeAtual })));
-    } catch (error) { console.error('Erro ao carregar dashboard:', error); }
-    finally { setLoading(false); }
+  const { data, loading, reload: loadDashboard } = useApiData(fetchDashboard, { alertas: [], itens: [] });
+  const { alertas, itens } = data;
+
+  const canRegisterEntry = hasPermission('REGISTRAR_ENTRADA');
+  const itemsWithPhoto = new Set(itens.filter((i) => i.imagem?.url).map((i) => i.id));
+  const stats = computeStats(itens);
+
+  const openEntry = (itemId = '') => {
+    setEntryErrors({});
+    setEntryForm(createEntryForm(itemId));
   };
-
-  useEffect(() => { carregarDashboard(); }, []);
-
-  useEffect(() => { document.title = 'Dashboard · StockFlow'; }, []);
+  const setEntryField = (field, value) => setEntryForm((prev) => ({ ...prev, [field]: value }));
 
   const handleConfirmEntry = async () => {
-    const newErrors = { productId: !formData.productId, quantity: !formData.quantity || parseInt(formData.quantity) <= 0 };
-    setErrors(newErrors);
-    if (newErrors.productId || newErrors.quantity) return;
+    const errors = {
+      itemId: !entryForm.itemId,
+      quantidade: !entryForm.quantidade || parseInt(entryForm.quantidade, 10) <= 0,
+    };
+    setEntryErrors(errors);
+    if (errors.itemId || errors.quantidade) return;
+
+    setSavingEntry(true);
     try {
-      await movimentacaoService.registrar({ itemId: parseInt(formData.productId), tipo: 'entrada', quantidade: parseInt(formData.quantity), data: formData.date, observacao: formData.observation });
-      setShowEntryModal(false);
-      setFormData({ productId: '', quantity: '', date: new Date().toISOString().split('T')[0], observation: '' });
-      carregarDashboard();
+      await movimentacaoService.registrar({
+        itemId: parseInt(entryForm.itemId, 10),
+        tipo: 'entrada',
+        quantidade: parseInt(entryForm.quantidade, 10),
+        data: entryForm.data,
+        observacao: entryForm.observacao,
+      });
+      setEntryForm(null);
       showApiSuccess('Entrada registrada com sucesso!');
-    } catch (error) { showApiError(error); }
+      loadDashboard();
+    } catch (error) {
+      showApiError(error);
+    } finally {
+      setSavingEntry(false);
+    }
   };
 
-  if (loading) return <LoadingSpinner variant="fullpage" message="Carregando dashboard..." />;
+  if (loading) return <LoadingSpinner message="Carregando dashboard..." />;
 
   const kpiCards = [
-    { label: 'Total de produtos', value: stats.totalProducts, color: '#0d2137', description: 'cadastrados' },
-    { label: 'Estoque OK', value: stats.okProducts, color: '#1e9e5e', description: 'produtos normais' },
-    { label: 'Em alerta', value: stats.alertProducts, color: '#e07b00', description: 'abaixo do mínimo' },
-    { label: 'Zerados', value: stats.zeradosProducts, color: '#e84040', description: 'sem estoque' },
+    { label: 'Produtos ativos', value: stats.total, icon: Boxes, tone: 'primary', description: 'no catálogo' },
+    { label: 'Estoque OK', value: stats.ok, icon: PackageCheck, tone: 'success', description: 'acima do mínimo' },
+    { label: 'Em alerta', value: stats.alerta, icon: AlertTriangle, tone: 'warning', description: 'abaixo do mínimo' },
+    { label: 'Zerados', value: stats.zerados, icon: PackageX, tone: 'danger', description: 'sem estoque' },
   ];
 
   const alertColumns = [
     {
-      header: 'Foto', accessor: 'imagemUrl', width: '64px',
-      render: (row) => row.imagemUrl ? (
-        <img src={row.imagemUrl} alt={row.itemNome} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid var(--border-subtle)' }} />
-      ) : (
-        <div className="rounded-lg flex items-center justify-center" style={{ width: '44px', height: '44px', backgroundColor: 'var(--bg-input)', border: '1.5px dashed var(--border-subtle)' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>IMG</span>
+      header: 'Produto',
+      primary: true,
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <ProductThumb size={36} src={itemsWithPhoto.has(row.itemId) ? imagemProdutoService.url(row.itemId, 'icon') : null} alt={row.itemNome} />
+          <span className="font-medium text-navy">{row.itemNome}</span>
         </div>
       ),
     },
-    { header: 'Produto', accessor: 'itemNome' },
-    { header: 'Qtd atual', accessor: 'quantidadeAtual' },
-    { header: 'Qtd mínima', accessor: 'quantidadeMinima' },
-    { header: 'Status', accessor: 'tipoAlerta', render: (row) => <StatusBadge status={row.tipoAlerta} /> },
-    {
-      header: 'Ação', align: 'right',
-      render: (row) => <Button onClick={() => { setFormData({ ...formData, productId: (row.itemId || row.id).toString() }); setShowEntryModal(true); }} variant="secondary" className="px-3 py-1.5 rounded text-xs" style={{ backgroundColor: '#eaf2fb', color: '#1565c0', borderRadius: '5px' }}>Repor</Button>,
-    },
+    { header: 'Atual', accessor: 'quantidadeAtual', numeric: true, bold: true },
+    { header: 'Mínimo', accessor: 'quantidadeMinima', numeric: true },
+    { header: 'Status', render: (row) => <StatusBadge status={row.tipoAlerta} /> },
+    ...(canRegisterEntry ? [{
+      header: 'Ações', align: 'right',
+      render: (row) => (
+        <Button variant="ghost-primary" size="sm" onClick={() => openEntry(String(row.itemId))}>
+          <Plus className="h-3.5 w-3.5" /> Entrada
+        </Button>
+      ),
+    }] : []),
   ];
 
+  const quickActions = [
+    { label: 'Movimentar estoque', Icon: ArrowLeftRight, to: '/movements', permissions: ['REGISTRAR_ENTRADA', 'REGISTRAR_SAIDA'] },
+    { label: 'Cadastrar produto', Icon: PackagePlus, to: '/products', permissions: ['CADASTRAR_ITENS'] },
+    { label: 'Ver relatórios', Icon: FileText, to: '/reports', permissions: ['VER_RELATORIOS'] },
+  ].filter((action) => action.permissions.some(hasPermission));
+
+  const banner = alertas.length > 0 && (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-warning-strong/30 bg-warning-soft px-4 py-3">
+      <p className="flex items-center gap-2 text-sm font-medium text-warning">
+        <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        {alertas.length} {alertas.length === 1 ? 'produto está' : 'produtos estão'} com estoque abaixo do mínimo
+      </p>
+      <Button variant="ghost-warning" size="sm" onClick={() => navigate('/products', { state: { filterByAlert: true } })}>
+        Ver produtos em alerta
+      </Button>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg-page)' }}>
-      {productsInAlert.length > 0 && (
-        <div className="w-full px-6 py-2.5 flex items-center justify-between cursor-pointer hover:opacity-90 transition-opacity" style={{ backgroundColor: '#fff8e1', borderLeft: '4px solid #e07b00' }}>
-          <p style={{ fontSize: '13px', color: '#b86200', fontWeight: '500' }}>{productsInAlert.length} produtos estão com estoque abaixo do mínimo</p>
-          <Button onClick={() => navigate('/products', { state: { filterByAlert: true } })} variant="secondary" className="px-3 py-1.5 rounded text-xs" style={{ backgroundColor: '#e07b00', color: '#ffffff', borderRadius: '6px' }}>Ver agora</Button>
-        </div>
-      )}
+    <PageLayout
+      title={`${greeting()}, ${user?.nome?.split(' ')[0] ?? ''}`}
+      documentTitle="Dashboard"
+      description="Resumo do estoque agora."
+      banner={banner}
+      actions={
+        <>
+          {quickActions.map(({ label, Icon, to }) => (
+            <Button key={label} variant="outline" onClick={() => navigate(to)}>
+              <Icon className="h-4 w-4" /> {label}
+            </Button>
+          ))}
+          {canRegisterEntry && (
+            <Button onClick={() => openEntry()}><Plus className="h-4 w-4" /> Registrar entrada</Button>
+          )}
+        </>
+      }
+    >
+      <KPICardGrid cards={kpiCards} />
 
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#1565c0', color: '#ffffff', boxShadow: '0 2px 6px rgba(21,101,192,0.3)' }}>
-            <LayoutDashboard className="w-5 h-5" />
-          </div>
-          <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)' }}>Dashboard</h2>
+      <section>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-base font-semibold text-navy">Produtos que precisam de atenção</h2>
+          {alertas.length > 0 && <span className="numeric text-sm text-body">{alertas.length} itens</span>}
         </div>
-        <KPICardGrid cards={kpiCards} />
+        <DataTable
+          columns={alertColumns}
+          data={alertas}
+          rowKey="itemId"
+          empty={{ icon: PackageCheck, title: 'Tudo em ordem', description: 'Nenhum produto está abaixo do estoque mínimo.' }}
+        />
+      </section>
 
-        <div className="mb-6">
-          <h2 className="mb-3" style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '600' }}>Produtos que precisam de atenção</h2>
-          <DataTable columns={alertColumns} data={productsInAlert} emptyMessage="Nenhum produto em alerta" rowKey="itemId" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Button onClick={() => navigate('/movements')} className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Registrar entrada</Button>
-          <Button onClick={() => navigate('/movements')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1565c0', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid #1565c0', boxShadow: 'var(--shadow-card)' }}><Minus className="w-4 h-4" /> Registrar saída</Button>
-          <Button onClick={() => navigate('/products')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><PackagePlus className="w-4 h-4" /> Cadastrar produto</Button>
-          <Button onClick={() => navigate('/reports')} variant="outline" className="px-4 py-3 rounded-lg flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><FileText className="w-4 h-4" /> Ver relatório</Button>
-        </div>
-      </div>
-
-      {showEntryModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} onClick={() => setShowEntryModal(false)}>
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()} style={{ borderRadius: '10px', boxShadow: 'var(--shadow-card-hover)' }}>
-            <h2 className="mb-4" style={{ fontSize: '18px', color: 'var(--text-primary)', fontWeight: '800' }}>Registrar entrada de produto</h2>
-            <FormField label="Produto" error={errors.productId}>
-              <FormSelect value={formData.productId} onChange={(e) => setFormData({ ...formData, productId: e.target.value })} error={errors.productId}>
+      <Modal open={Boolean(entryForm)} onClose={() => setEntryForm(null)} title="Registrar entrada de produto" className="max-w-2xl">
+        {entryForm && (
+          <div className="space-y-4">
+            <FormField label="Produto" error={entryErrors.itemId}>
+              <FormSelect value={entryForm.itemId} onChange={(e) => setEntryField('itemId', e.target.value)}>
                 <option value="">Selecione um produto</option>
-                {allProducts.map(p => <option key={p.id} value={p.id}>{p.name} (Estoque: {p.currentStock})</option>)}
+                {itens.map((p) => <option key={p.id} value={p.id}>{p.nome} (Estoque: {p.quantidadeAtual})</option>)}
               </FormSelect>
             </FormField>
-            <FormField label="Quantidade" error={errors.quantity}>
-              <FormNumber value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} error={errors.quantity} placeholder="0" />
+            <FormField label="Quantidade" error={entryErrors.quantidade}>
+              <FormNumber value={entryForm.quantidade} onChange={(e) => setEntryField('quantidade', e.target.value)} placeholder="0" />
             </FormField>
             <FormField label="Data">
-              <FormDate value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+              <FormInput type="date" value={entryForm.data} max={todayISO()} onChange={(e) => setEntryField('data', e.target.value)} />
             </FormField>
             <FormField label="Observação">
-              <textarea className="w-full p-2 border rounded" style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--bg-input)', borderRadius: '8px', padding: '10px 14px', fontSize: '14px', color: 'var(--text-primary)' }} value={formData.observation} onChange={(e) => setFormData({ ...formData, observation: e.target.value })} />
+              <FormTextarea value={entryForm.observacao} onChange={(e) => setEntryField('observacao', e.target.value)} rows={3} />
             </FormField>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setShowEntryModal(false)} className="px-4 py-2 rounded" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)' }}>Cancelar</Button>
-              <Button onClick={handleConfirmEntry} className="px-4 py-2 rounded" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px' }}>Confirmar</Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEntryForm(null)} disabled={savingEntry}>Cancelar</Button>
+              <Button onClick={handleConfirmEntry} disabled={savingEntry}>{savingEntry ? 'Salvando...' : 'Confirmar'}</Button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </Modal>
+    </PageLayout>
   );
 }

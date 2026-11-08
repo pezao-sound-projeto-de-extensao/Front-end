@@ -1,30 +1,8 @@
 import { api } from './api';
+import { createResource, data } from './resource';
 
 export const usuarioService = {
-  listar: async (params = {}) => {
-    const response = await api.get('/usuarios', { params });
-    return response.data;
-  },
-
-  buscarPorId: async (id) => {
-    const response = await api.get(`/usuarios/${id}`);
-    return response.data;
-  },
-
-  criar: async (data) => {
-    const response = await api.post('/usuarios', data);
-    return response.data;
-  },
-
-  atualizar: async (id, data) => {
-    const response = await api.put(`/usuarios/${id}`, data);
-    return response.data;
-  },
-
-  ativar: async (id) => {
-    const response = await api.patch(`/usuarios/ativo/${id}`);
-    return response.data;
-  },
+  ...createResource('/usuarios', ['listar', 'buscarPorId', 'criar', 'atualizar']),
+  /** Alterna o usuário entre ativo e inativo. */
+  alternarAtivo: (id) => data(api.patch(`/usuarios/ativo/${id}`)),
 };
-
-export default usuarioService;

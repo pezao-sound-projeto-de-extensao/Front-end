@@ -1,30 +1,10 @@
 import { api } from './api';
+import { createResource, data } from './resource';
 
 export const encomendaService = {
-  listar: async (params = {}) => {
-    const response = await api.get('/encomendas', { params });
-    return response.data;
-  },
-
-  kpis: async () => {
-    const response = await api.get('/encomendas/kpis');
-    return response.data;
-  },
-
-  buscarPorId: async (id) => {
-    const response = await api.get(`/encomendas/${id}`);
-    return response.data;
-  },
-
-  receber: async (id, itemId = null) => {
-    const response = await api.patch(`/encomendas/${id}/receber`, itemId ? { itemId } : {});
-    return response.data;
-  },
-
-  concluir: async (id) => {
-    const response = await api.patch(`/encomendas/${id}/concluir`);
-    return response.data;
-  },
+  ...createResource('/encomendas', ['listar', 'buscarPorId']),
+  kpis: () => data(api.get('/encomendas/kpis')),
+  /** itemId vincula a encomenda a um produto do catálogo quando ela ainda não tem. */
+  receber: (id, itemId = null) => data(api.patch(`/encomendas/${id}/receber`, itemId ? { itemId } : {})),
+  concluir: (id) => data(api.patch(`/encomendas/${id}/concluir`)),
 };
-
-export default encomendaService;

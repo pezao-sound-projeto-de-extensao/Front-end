@@ -1,90 +1,63 @@
 import axios from 'axios';
 import { env } from '../config';
 import { showApiError } from '../lib/apiError';
-import { authService } from './authService';
-import { getGlobalOpenModal } from '../context/SessionModalContext';
+import { emitSessionExpired } from '../lib/sessionEvents';
 
-const apiUrl = env('VITE_API_BASE_URL');
+export const API_BASE_URL = (env('VITE_API_BASE_URL') || '').replace(/\/+$/, '');
 
+if (!API_BASE_URL) {
+  // Sem a URL, as chamadas caem no próprio servidor do front, que responde index.html com 200
+  console.error('VITE_API_BASE_URL não definida: configure o .env (veja .env.example).');
+}
+
+// A autenticação é por cookie httpOnly (access_token / refresh_token):
+// o navegador envia e o back-end renova os cookies, não há header para gerenciar.
 export const api = axios.create({
-  baseURL: apiUrl,
+  baseURL: API_BASE_URL,
   timeout: 10000,
   withCredentials: true,
 });
 
-let isRefreshing = false;
-let failedQueue = [];
+// Rotas de autenticação nunca disparam o refresh automático
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/trocar-senha', '/auth/esqueci-senha', '/auth/redefinir-senha'];
+const SESSION_CHECK_ENDPOINT = '/auth/me';
 
-const processQueue = (error, token = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
+const matches = (url, endpoint) => url.includes(endpoint);
+
+// Várias requisições podem receber 401 juntas: todas esperam o mesmo refresh
+let refreshPromise = null;
+
+function refreshSession() {
+  refreshPromise ??= api.post('/auth/refresh').finally(() => {
+    refreshPromise = null;
   });
-  failedQueue = [];
-};
-
-const openSessionExpiredModal = (retryFn) => {
-  const openModal = getGlobalOpenModal();
-  if (openModal) {
-    openModal(retryFn);
-  } else {
-    window.location.href = '/login';
-  }
-};
+  return refreshPromise;
+}
 
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config ?? {};
     const status = error.response?.status;
-    const requestUrl = error.config?.url || '';
-    const isAuthMe = requestUrl.includes('/auth/me');
-    const isAuthEndpoint = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh') || requestUrl.includes('/auth/logout') || requestUrl.includes('/auth/trocar-senha') || requestUrl.includes('/auth/esqueci-senha') || requestUrl.includes('/auth/redefinir-senha');
-
-    if (status === 403 && isAuthMe) {
-      return Promise.reject(error);
-    }
+    const url = originalRequest.url ?? '';
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((endpoint) => matches(url, endpoint));
+    const isSessionCheck = matches(url, SESSION_CHECK_ENDPOINT);
 
     if (status === 401 && !isAuthEndpoint && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return api(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
-
       try {
-        const { accessToken } = await authService.refreshToken();
-        isRefreshing = false;
-        processQueue(null, accessToken);
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        await refreshSession();
         return api(originalRequest);
       } catch (refreshError) {
-        isRefreshing = false;
-        processQueue(refreshError, null);
-
-        // /auth/me falhando no carregamento só significa que não há sessão; o ProtectedRoute manda para o login
-        if (window.location.pathname !== '/login' && !isAuthMe) {
-          openSessionExpiredModal(() => {
-            window.location.href = '/login';
-          });
+        // Falha no /auth/me ao abrir o app só significa "sem sessão": o ProtectedRoute leva ao login
+        if (!isSessionCheck && window.location.pathname !== '/login' && !emitSessionExpired()) {
+          window.location.href = '/login';
         }
         return Promise.reject(refreshError);
       }
     }
 
-    if (status === 403 && !isAuthMe && !isAuthEndpoint) {
+    if (status === 403 && !isAuthEndpoint && !isSessionCheck) {
       showApiError(error);
     }
 

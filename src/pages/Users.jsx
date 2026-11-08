@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Plus, User, Briefcase, KeyRound, Users as UsersIcon } from 'lucide-react';
+import { useState } from 'react';
+import * as Tabs from '@radix-ui/react-tabs';
+import { Ban, Briefcase, KeyRound, Pencil, Plus, RotateCcw, ShieldCheck, UserX } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { usuarioService } from '../services/usuarioService';
 import { authService } from '../services/authService';
 import { cargoService } from '../services/cargoService';
 import { permissaoService } from '../services/permissaoService';
+import { formatDateTime, initials } from '../lib/formatters';
+import { showApiError, showApiSuccess } from '../lib/apiError';
+import useCrudForm from '../hooks/useCrudForm';
+import useApiData from '../hooks/useApiData';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
@@ -14,104 +19,107 @@ import FormPanel from '../components/FormPanel';
 import FormField, { FormInput, FormSelect } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
-import useCrudForm from '../hooks/useCrudForm';
-import { formatDateTime } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+import RowActions from '../components/RowActions';
 
-const USER_FIELDS = {
-  nome: 'Nome',
-  email: 'E-mail',
-  cargo_id: 'Cargo',
-  cargoId: 'Cargo',
-  senha: 'Senha',
-  ativo: 'Status',
-};
+// Os nomes dos campos do formulário seguem o UsuarioRequest/CargoRequest do back-end,
+// assim os erros de validação da API caem direto no campo certo.
+const USER_FIELDS = { nome: 'Nome', email: 'E-mail', cargo_id: 'Cargo', senha: 'Senha', ativo: 'Status' };
+const CARGO_FIELDS = { nome: 'Nome', descricao: 'Descrição', permissoes: 'Permissões' };
 
-const CARGO_FIELDS = {
-  nome: 'Nome',
-  descricao: 'Descrição',
-  permissoes: 'Permissões',
-};
+const EMPTY_USER = { nome: '', email: '', cargo_id: '' };
+const EMPTY_CARGO = { nome: '', descricao: '', permissoes: [] };
+
+const STATUS_OPTIONS = [
+  { value: 'ativo', label: 'Ativos' },
+  { value: 'inativo', label: 'Inativos' },
+  { value: '', label: 'Todos' },
+];
+
+async function fetchUsersData() {
+  const [usuariosPage, cargos, permissoes] = await Promise.all([
+    usuarioService.listar({ size: 1000 }),
+    cargoService.listar(),
+    permissaoService.listar(),
+  ]);
+  return { users: usuariosPage.content ?? [], cargos, permissoes };
+}
+
+const validateUser = (data) => ({
+  nome: !data.nome.trim(),
+  email: !data.email.trim(),
+  cargo_id: !data.cargo_id,
+});
+
+const validateCargo = (data) => ({
+  nome: !data.nome.trim(),
+  descricao: !data.descricao.trim(),
+  permissoes: data.permissoes.length === 0 && 'Selecione pelo menos uma permissão',
+});
+
+const toUserPayload = (data) => ({ nome: data.nome.trim(), email: data.email.trim(), cargo_id: parseInt(data.cargo_id, 10) });
+const toCargoPayload = (data) => ({ nome: data.nome.trim(), descricao: data.descricao.trim(), permissoes: data.permissoes });
+
+const formatPermissao = (nome) => nome.toLowerCase().replaceAll('_', ' ').replace(/^\w/, (c) => c.toUpperCase());
+const includesText = (value, term) => (value ?? '').toLowerCase().includes(term.toLowerCase());
+
+/** Círculo com as iniciais do nome, ou com um ícone. */
+function Avatar({ name, Icon }) {
+  return (
+    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+      {Icon ? <Icon className="h-4 w-4" /> : initials(name)}
+    </div>
+  );
+}
 
 export default function Users() {
   const [activeTab, setActiveTab] = useState('usuarios');
-
-  const [users, setUsers] = useState([]);
-  const [cargos, setCargos] = useState([]);
-  const [permissoes, setPermissoes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('Todos');
+  const [userSearch, setUserSearch] = useState('');
+  const [cargoSearch, setCargoSearch] = useState('');
+  const [cargoFilter, setCargoFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('ativo');
-  const [resetModal, setResetModal] = useState({ open: false, user: null });
+  const [resetTarget, setResetTarget] = useState(null);
+
+  const { data, loading, reload: loadData } = useApiData(fetchUsersData, { users: [], cargos: [], permissoes: [] });
+  const { users, cargos, permissoes } = data;
 
   const userForm = useCrudForm({
-    initialData: { name: '', email: '', cargoId: '' },
-    validate: (data) => ({
-      name: !data.name.trim(),
-      email: !data.email.trim(),
-      cargoId: !data.cargoId,
-    }),
+    initialData: EMPTY_USER,
+    validate: validateUser,
     service: usuarioService,
-    loadData: loadData,
-    successMessage: (criado) => criado?.conviteEnviado
+    loadData,
+    fieldLabels: USER_FIELDS,
+    entityName: 'Usuário',
+    successMessage: (criado, isEdit) => (!isEdit && criado?.conviteEnviado
       ? `Usuário cadastrado! Enviamos um e-mail para ${criado.email} criar a senha.`
-      : undefined,
+      : undefined),
   });
 
   const cargoForm = useCrudForm({
-    initialData: { nome: '', descricao: '', permissoes: [] },
-    validate: (data) => ({
-      nome: !data.nome.trim(),
-      descricao: !data.descricao.trim(),
-      permissoes: data.permissoes.length === 0,
-    }),
+    initialData: EMPTY_CARGO,
+    validate: validateCargo,
     service: cargoService,
-    loadData: loadData,
+    loadData,
+    fieldLabels: CARGO_FIELDS,
+    entityName: 'Cargo',
   });
 
-  const { showForm, editMode, formData, setFormData, errors, saving, handleNew, handleEdit, handleCancel, handleSave, handleClearField } = userForm;
-  const { showForm: showCargoForm, editMode: editCargoMode, formData: cargoFormData, setFormData: setCargoFormData, errors: cargoErrors, saving: savingCargo, handleNew: handleNewCargo, handleEdit: handleEditCargo, handleCancel: handleCancelCargo, handleSave: handleSaveCargo, handleClearField: handleClearCargoField } = cargoForm;
+  const editUser = (user) => userForm.handleEdit(user, {
+    nome: user.nome,
+    email: user.email,
+    cargo_id: String(user.cargo?.id ?? ''),
+  });
 
-  async function loadData() {
+  const editCargo = (cargo) => cargoForm.handleEdit(cargo, {
+    nome: cargo.nome,
+    descricao: cargo.descricao ?? '',
+    permissoes: [...(cargo.permissoes ?? [])],
+  });
+
+  const toggleAtivo = async (user) => {
     try {
-      setLoading(true);
-      const [usuariosPage, cargosData, permissoesData] = await Promise.all([
-        usuarioService.listar({ size: 1000 }),
-        cargoService.listar(),
-        permissaoService.listar(),
-      ]);
-      const raw = usuariosPage.content || usuariosPage;
-      setUsers(raw.map(u => ({
-        id: u.id,
-        name: u.nome,
-        email: u.email,
-        role: u.cargo?.nome || '',
-        cargoId: u.cargo?.id || '',
-        status: u.ativo ? 'ativo' : 'inativo',
-        lastAccess: u.ultimoAcesso,
-      })));
-      setCargos(cargosData);
-      setPermissoes(permissoesData);
-    } catch (err) {
-      console.error('Erro ao carregar dados:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { loadData(); }, []);
-
-  const handleEditUser = (user) => {
-    handleEdit(user);
-    setFormData({ name: user.name, email: user.email, cargoId: String(user.cargoId) });
-  };
-
-  const handleToggleAtivo = async (id) => {
-    try {
-      await usuarioService.ativar(id);
+      await usuarioService.alternarAtivo(user.id);
       await loadData();
-      showApiSuccess('Status do usuário atualizado!');
+      showApiSuccess(user.ativo ? 'Usuário desativado!' : 'Usuário ativado!');
     } catch (err) {
       showApiError(err, USER_FIELDS);
     }
@@ -119,239 +127,204 @@ export default function Users() {
 
   const confirmResetarSenha = async () => {
     try {
-      await authService.resetarSenha(resetModal.user.id);
-      showApiSuccess(`Senha resetada! Enviamos um e-mail para ${resetModal.user.email} criar uma nova.`);
+      await authService.resetarSenha(resetTarget.id);
+      showApiSuccess(`Senha resetada! Enviamos um e-mail para ${resetTarget.email} criar uma nova.`);
     } catch (err) {
       showApiError(err, USER_FIELDS);
+    } finally {
+      setResetTarget(null);
     }
-    setResetModal({ open: false, user: null });
   };
 
-  const handleSaveUser = () => {
-    handleSave((data) => ({
-      nome: data.name,
-      email: data.email,
-      cargo_id: parseInt(data.cargoId),
-    }), USER_FIELDS);
+  const togglePermissao = (nome) => {
+    const atual = cargoForm.formData.permissoes;
+    cargoForm.setField('permissoes', atual.includes(nome) ? atual.filter((p) => p !== nome) : [...atual, nome]);
   };
 
-  const handleSaveNewCargo = () => {
-    handleSaveCargo((data) => ({
-      nome: data.nome,
-      descricao: data.descricao,
-      permissoes: data.permissoes,
-    }), CARGO_FIELDS);
-  };
+  const filteredUsers = users.filter((user) =>
+    (includesText(user.nome, userSearch) || includesText(user.email, userSearch))
+    && (!cargoFilter || String(user.cargo?.id) === cargoFilter)
+    && (!statusFilter || (statusFilter === 'ativo') === Boolean(user.ativo)));
 
-  const handleTogglePermissao = (nome) => {
-    const current = cargoFormData.permissoes;
-    setCargoFormData({
-      ...cargoFormData,
-      permissoes: current.includes(nome) ? current.filter(p => p !== nome) : [...current, nome],
-    });
-    handleClearCargoField('permissoes');
-  };
-
-  const formatPermissao = (nome) => nome.toLowerCase().replaceAll('_', ' ').replace(/^\w/, c => c.toUpperCase());
-
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'Todos' || user.role === roleFilter;
-    const matchesStatus = statusFilter === 'Todos' || user.status === statusFilter;
-    return matchesSearch && matchesRole && matchesStatus;
-  });
-
-  const filteredCargos = cargos.filter(cargo =>
-    cargo.nome.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCargos = cargos.filter((cargo) => includesText(cargo.nome, cargoSearch));
 
   const userColumns = [
     {
-      header: 'Nome', accessor: 'name',
+      header: 'Usuário',
+      primary: true,
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#1565c0', color: '#ffffff' }}>
-            <User className="w-4 h-4" />
+          <Avatar name={row.nome} />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-navy">{row.nome}</p>
+            <p className="truncate text-xs text-subtle">{row.email}</p>
           </div>
-          <span style={{ fontWeight: '500' }}>{row.name}</span>
         </div>
       ),
     },
-    { header: 'E-mail', accessor: 'email' },
-    { header: 'Perfil', accessor: 'role', render: (row) => <StatusBadge status={row.role} /> },
-    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
-    { header: 'Último acesso', accessor: 'lastAccess', render: (row) => formatDateTime(row.lastAccess) },
+    { header: 'Cargo', render: (row) => <StatusBadge status={row.cargo?.nome} tone="info" label={row.cargo?.nome} /> },
+    { header: 'Situação', render: (row) => <StatusBadge status={row.ativo ? 'ativo' : 'inativo'} /> },
+    { header: 'Último acesso', render: (row) => <span className="numeric text-body">{formatDateTime(row.ultimoAcesso)}</span> },
     {
-      header: 'Ações', align: 'right',
+      header: 'Ações', align: 'right', width: '130px',
       render: (row) => (
-        <div className="flex justify-end gap-3">
-          <Button variant="ghost" size="sm" onClick={() => handleEditUser(row)} style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}>Editar</Button>
-          <Button variant="ghost" size="sm" onClick={() => setResetModal({ open: true, user: row })} style={{ fontSize: '12px', fontWeight: 'bold', color: '#e07b00' }}>Resetar senha</Button>
-          <Button variant="ghost" size="sm" onClick={() => handleToggleAtivo(row.id)} style={{ fontSize: '12px', fontWeight: 'bold', color: row.status === 'ativo' ? '#e84040' : '#1e9e5e' }}>
-            {row.status === 'ativo' ? 'Desativar' : 'Ativar'}
-          </Button>
-        </div>
+        <RowActions
+          actions={[
+            { label: 'Editar', icon: Pencil, onClick: () => editUser(row) },
+            { label: 'Resetar senha', icon: KeyRound, tone: 'warning', onClick: () => setResetTarget(row) },
+            row.ativo
+              ? { label: 'Desativar', icon: Ban, tone: 'danger', onClick: () => toggleAtivo(row) }
+              : { label: 'Ativar', icon: RotateCcw, tone: 'success', onClick: () => toggleAtivo(row) },
+          ]}
+        />
       ),
     },
   ];
 
   const cargoColumns = [
     {
-      header: 'Cargo', accessor: 'nome',
+      header: 'Cargo',
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#1565c0', color: '#ffffff' }}>
-            <Briefcase className="w-4 h-4" />
-          </div>
+          <Avatar Icon={Briefcase} />
           <div>
-            <span style={{ fontWeight: '500' }}>{row.nome}</span>
-            {row.descricao && <p style={{ fontSize: '12px', color: '#5a82a0' }}>{row.descricao}</p>}
+            <span className="font-medium">{row.nome}</span>
+            {row.descricao && <p className="text-xs text-muted">{row.descricao}</p>}
           </div>
         </div>
       ),
     },
     {
-      header: 'Permissões', accessor: 'permissoes',
+      header: 'Permissões',
       render: (row) => (
         <div className="flex flex-wrap gap-1.5">
-          {row.permissoes.map(p => (
-            <span key={p} className="px-2 py-0.5 rounded" style={{ backgroundColor: '#e3edf7', color: '#1565c0', fontSize: '11px', fontWeight: '500' }}>
-              {formatPermissao(p)}
-            </span>
+          {row.permissoes.map((p) => (
+            <span key={p} className="rounded bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">{formatPermissao(p)}</span>
           ))}
         </div>
       ),
     },
     {
       header: 'Ações', align: 'right',
-      render: (row) => (
-        <div className="flex justify-end gap-3">
-          <Button variant="ghost" size="sm" onClick={() => { handleEditCargo(row); setCargoFormData({ nome: row.nome, descricao: row.descricao || '', permissoes: Array.from(row.permissoes || []) }); }} style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}>Editar</Button>
-        </div>
-      ),
+      render: (row) => <Button variant="ghost-primary" size="sm" onClick={() => editCargo(row)}>Editar</Button>,
     },
   ];
 
-  const tabs = [
-    { id: 'usuarios', label: 'Usuários' },
-    { id: 'cargos', label: 'Cargos' },
-  ];
+  const isUsersTab = activeTab === 'usuarios';
+  const tabClass = 'px-5 py-3 text-sm font-medium text-muted border-b-2 border-transparent -mb-px data-[state=active]:font-bold data-[state=active]:text-primary data-[state=active]:border-primary';
 
   return (
     <PageLayout
       title="Usuários"
-      icon={UsersIcon}
+      description="Quem acessa o sistema e o que cada cargo pode fazer."
       actions={
-        activeTab === 'usuarios' ? (
-          <Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Novo usuário</Button>
-        ) : (
-          <Button onClick={handleNewCargo} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Novo cargo</Button>
-        )
+        <Button onClick={() => (isUsersTab ? userForm.handleNew() : cargoForm.handleNew())}>
+          <Plus className="h-4 w-4" /> {isUsersTab ? 'Novo usuário' : 'Novo cargo'}
+        </Button>
       }
     >
-      <div className="flex gap-1 mb-6 border-b" style={{ borderColor: '#d0dde8' }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
-            className="px-5 py-3 text-sm transition-colors"
-            style={{
-              fontWeight: activeTab === tab.id ? 'bold' : '500',
-              color: activeTab === tab.id ? '#1565c0' : '#5a82a0',
-              borderBottom: activeTab === tab.id ? '2px solid #1565c0' : '2px solid transparent',
-              marginBottom: '-1px',
-              backgroundColor: 'transparent',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
+        <Tabs.List className="mb-6 flex gap-1 border-b border-line-strong" aria-label="Seções">
+          <Tabs.Trigger value="usuarios" className={tabClass}>Usuários</Tabs.Trigger>
+          <Tabs.Trigger value="cargos" className={tabClass}>Cargos</Tabs.Trigger>
+        </Tabs.List>
 
-      {activeTab === 'usuarios' && (
-        <>
-          {showForm && (
-            <FormPanel title={editMode ? 'Editar usuário' : 'Novo usuário'}>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Nome completo" error={errors.name}>
-                  <FormInput placeholder="Nome do usuário" value={formData.name} onChange={(e) => { setFormData({ ...formData, name: e.target.value }); handleClearField('name'); }} error={errors.name} />
+        <Tabs.Content value="usuarios">
+          <FormPanel open={userForm.showForm} onClose={userForm.handleCancel} title={userForm.editMode ? 'Editar usuário' : 'Novo usuário'}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Nome completo" error={userForm.errors.nome}>
+                  <FormInput placeholder="Nome do usuário" value={userForm.formData.nome} onChange={(e) => userForm.setField('nome', e.target.value)} />
                 </FormField>
-                <FormField label="E-mail" error={errors.email}>
-                  <FormInput type="email" placeholder="usuario@email.com" value={formData.email} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); handleClearField('email'); }} error={errors.email} />
+                <FormField label="E-mail" error={userForm.errors.email}>
+                  <FormInput type="email" placeholder="usuario@email.com" value={userForm.formData.email} onChange={(e) => userForm.setField('email', e.target.value)} />
                 </FormField>
               </div>
-              <FormField label="Cargo" error={errors.cargoId}>
-                <FormSelect value={formData.cargoId} onChange={(e) => { setFormData({ ...formData, cargoId: e.target.value }); handleClearField('cargoId'); }} error={errors.cargoId}>
+              <FormField label="Cargo" error={userForm.errors.cargo_id}>
+                <FormSelect value={userForm.formData.cargo_id} onChange={(e) => userForm.setField('cargo_id', e.target.value)}>
                   <option value="">Selecione um cargo</option>
-                  {cargos.map(cargo => <option key={cargo.id} value={cargo.id}>{cargo.nome}</option>)}
+                  {cargos.map((cargo) => <option key={cargo.id} value={cargo.id}>{cargo.nome}</option>)}
                 </FormSelect>
               </FormField>
-              <CrudFormActions editMode={editMode} saving={saving} onCancel={handleCancel} onSave={handleSaveUser} />
-            </FormPanel>
-          )}
+              <CrudFormActions
+                editMode={userForm.editMode}
+                saving={userForm.saving}
+                onCancel={userForm.handleCancel}
+                onSave={() => userForm.handleSave(toUserPayload)}
+              />
+          </FormPanel>
 
-          <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-            <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por nome ou e-mail..." />
-            <FilterSelect value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} width="160px" options={[{ value: 'Todos', label: 'Todos os perfis' }, ...cargos.map(c => ({ value: c.nome, label: c.nome }))]} />
-            <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} width="140px" options={[{ value: 'ativo', label: 'Ativo' }, { value: 'inativo', label: 'Inativo' }, { value: 'Todos', label: 'Todos' }]} />
+          <div className="toolbar">
+            <SearchBar value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Buscar por nome ou e-mail..." />
+            <FilterSelect label="Cargo" value={cargoFilter} onChange={(e) => setCargoFilter(e.target.value)} options={[{ value: '', label: 'Todos os perfis' }, ...cargos.map((c) => ({ value: String(c.id), label: c.nome }))]} />
+            <FilterSelect label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} width="140px" options={STATUS_OPTIONS} />
           </div>
 
-          <DataTable columns={userColumns} data={filteredUsers} loading={loading} emptyMessage="Nenhum usuário encontrado" ativoAccessor="status" />
-          <ConfirmModal
-            isOpen={resetModal.open}
-            onClose={() => setResetModal({ open: false, user: null })}
-            onConfirm={confirmResetarSenha}
-            title="Resetar senha"
-            message={`A senha atual de ${resetModal.user?.name ?? ''} deixará de funcionar e um link para criar uma nova será enviado para ${resetModal.user?.email ?? ''}.`}
-            confirmLabel="Resetar"
-            confirmVariant="destructive"
-            icon={<KeyRound style={{ width: '20px', height: '20px', color: '#e84040' }} />}
+          <DataTable
+            columns={userColumns}
+            data={filteredUsers}
+            loading={loading}
+            empty={{ icon: UserX, title: 'Nenhum usuário encontrado', description: 'Tente outra busca ou ajuste os filtros.' }}
+            isRowInactive={(row) => !row.ativo}
           />
-        </>
-      )}
+        </Tabs.Content>
 
-      {activeTab === 'cargos' && (
-        <>
-          {showCargoForm && (
-            <FormPanel title={editCargoMode ? 'Editar cargo' : 'Novo cargo'}>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Nome do cargo" error={cargoErrors.nome}>
-                  <FormInput placeholder="Ex.: Gerente, Analista..." value={cargoFormData.nome} onChange={(e) => { setCargoFormData({ ...cargoFormData, nome: e.target.value }); handleClearCargoField('nome'); }} error={cargoErrors.nome} />
+        <Tabs.Content value="cargos">
+          <FormPanel open={cargoForm.showForm} onClose={cargoForm.handleCancel} title={cargoForm.editMode ? 'Editar cargo' : 'Novo cargo'}>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Nome do cargo" error={cargoForm.errors.nome}>
+                  <FormInput placeholder="Ex.: Gerente, Analista..." value={cargoForm.formData.nome} onChange={(e) => cargoForm.setField('nome', e.target.value)} />
                 </FormField>
-                <FormField label="Descrição" error={cargoErrors.descricao}>
-                  <FormInput placeholder="Ex.: Acesso a relatórios e movimentações" value={cargoFormData.descricao} onChange={(e) => { setCargoFormData({ ...cargoFormData, descricao: e.target.value }); handleClearCargoField('descricao'); }} error={cargoErrors.descricao} />
+                <FormField label="Descrição" error={cargoForm.errors.descricao}>
+                  <FormInput placeholder="Ex.: Acesso a relatórios e movimentações" value={cargoForm.formData.descricao} onChange={(e) => cargoForm.setField('descricao', e.target.value)} />
                 </FormField>
               </div>
-              <FormField label="Permissões" error={cargoErrors.permissoes}>
-                <div className="grid grid-cols-2 gap-2 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: cargoErrors.permissoes ? '1px solid #e84040' : '1px solid var(--border-subtle)' }}>
-                  {permissoes.map(permissao => (
-                    <label key={permissao.nome} className="flex items-center gap-2 cursor-pointer" style={{ fontSize: '13px', color: '#0d2137' }}>
+              <fieldset>
+                <legend className="field-label">Permissões</legend>
+                <div
+                  className={`grid grid-cols-1 gap-2 rounded-lg border bg-surface p-4 sm:grid-cols-2 ${cargoForm.errors.permissoes ? 'border-danger' : 'border-line'}`}
+                >
+                  {permissoes.map((permissao) => (
+                    <label key={permissao.nome} className="flex cursor-pointer items-center gap-2 text-sm text-navy">
                       <input
                         type="checkbox"
-                        checked={cargoFormData.permissoes.includes(permissao.nome)}
-                        onChange={() => handleTogglePermissao(permissao.nome)}
-                        style={{ accentColor: '#1565c0' }}
+                        checked={cargoForm.formData.permissoes.includes(permissao.nome)}
+                        onChange={() => togglePermissao(permissao.nome)}
+                        className="accent-primary"
                       />
                       <span>
                         {formatPermissao(permissao.nome)}
-                        {permissao.descricao && <span style={{ color: '#8aabb8' }}> — {permissao.descricao}</span>}
+                        {permissao.descricao && <span className="text-subtle"> — {permissao.descricao}</span>}
                       </span>
                     </label>
                   ))}
                 </div>
-                {cargoErrors.permissoes && <p className="mt-1" style={{ fontSize: '12px', color: '#e84040' }}>Selecione pelo menos uma permissão</p>}
-              </FormField>
-              <CrudFormActions editMode={editCargoMode} saving={savingCargo} onCancel={handleCancelCargo} onSave={handleSaveNewCargo} />
-            </FormPanel>
-          )}
+                {cargoForm.errors.permissoes && <p className="field-error" role="alert">{cargoForm.errors.permissoes}</p>}
+              </fieldset>
+              <CrudFormActions
+                editMode={cargoForm.editMode}
+                saving={cargoForm.saving}
+                onCancel={cargoForm.handleCancel}
+                onSave={() => cargoForm.handleSave(toCargoPayload)}
+              />
+          </FormPanel>
 
-          <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-            <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por cargo..." />
+          <div className="toolbar">
+            <SearchBar value={cargoSearch} onChange={(e) => setCargoSearch(e.target.value)} placeholder="Buscar por cargo..." />
           </div>
 
-          <DataTable columns={cargoColumns} data={filteredCargos} loading={loading} emptyMessage="Nenhum cargo encontrado" />
-        </>
-      )}
+          <DataTable columns={cargoColumns} data={filteredCargos} loading={loading} empty={{ icon: ShieldCheck, title: 'Nenhum cargo encontrado', description: 'Crie cargos para definir o que cada pessoa pode fazer.' }} />
+        </Tabs.Content>
+      </Tabs.Root>
+
+      <ConfirmModal
+        isOpen={Boolean(resetTarget)}
+        onClose={() => setResetTarget(null)}
+        onConfirm={confirmResetarSenha}
+        title="Resetar senha"
+        message={`A senha atual de ${resetTarget?.nome ?? ''} deixará de funcionar e um link para criar uma nova será enviado para ${resetTarget?.email ?? ''}.`}
+        confirmLabel="Resetar"
+        icon={<KeyRound className="h-5 w-5 text-danger" />}
+      />
     </PageLayout>
   );
 }
