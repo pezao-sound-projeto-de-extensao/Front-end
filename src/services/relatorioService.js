@@ -1,10 +1,6 @@
 import { api } from './api';
+import { data } from './resource';
 
 export const relatorioService = {
-  buscar: async (params) => {
-    const response = await api.get('/relatorios', { params });
-    return response.data;
-  },
+  buscar: (params) => data(api.get('/relatorios', { params })),
 };
-
-export default relatorioService;

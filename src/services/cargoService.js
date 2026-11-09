@@ -1,18 +1,3 @@
-import { api } from './api';
+import { createResource } from './resource';
 
-export const cargoService = {
-  listar: async () => {
-    const response = await api.get('/cargos');
-    return response.data;
-  },
-  criar: async (data) => {
-    const response = await api.post('/cargos', data);
-    return response.data;
-  },
-  atualizar: async (id, data) => {
-    const response = await api.put(`/cargos/${id}`, data);
-    return response.data;
-  },
-};
-
-export default cargoService;
+export const cargoService = createResource('/cargos', ['listar', 'criar', 'atualizar']);

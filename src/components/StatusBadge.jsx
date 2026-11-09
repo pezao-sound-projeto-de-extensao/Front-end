@@ -1,43 +1,49 @@
-export default function StatusBadge({ status, variants = {} }) {
-  const defaultVariants = {
-    ok: { bg: '#e6f7ef', color: '#1e9e5e' },
-    ativo: { bg: '#e6f7ef', color: '#1e9e5e' },
-    entregue: { bg: '#e6f7ef', color: '#1e9e5e' },
-    aprovado: { bg: '#e6f7ef', color: '#1e9e5e' },
-    aceito: { bg: '#e6f7ef', color: '#1e9e5e' },
-    baixo: { bg: '#fff4e0', color: '#b86200' },
-    estoque_baixo: { bg: '#fff4e0', color: '#b86200' },
-    pendente: { bg: '#fff4e0', color: '#b86200' },
-    em_transito: { bg: '#eaf2fb', color: '#1565c0' },
-    zerado: { bg: '#fdeaea', color: '#c0392b' },
-    inativo: { bg: '#fdeaea', color: '#c0392b' },
-    recusado: { bg: '#fdeaea', color: '#c0392b' },
-    cancelado: { bg: '#fdeaea', color: '#c0392b' },
-    rejeitado: { bg: '#fdeaea', color: '#c0392b' },
-    concluido: { bg: '#eaf2fb', color: '#1565c0' },
-  };
+const TONES = {
+  success: { bg: 'var(--color-success-soft)', color: 'var(--color-success)' },
+  warning: { bg: 'var(--color-warning-soft)', color: 'var(--color-warning)' },
+  info: { bg: 'var(--color-primary-soft)', color: 'var(--color-primary)' },
+  danger: { bg: 'var(--color-danger-soft)', color: 'var(--color-danger-strong)' },
+  neutral: { bg: 'var(--color-surface-muted)', color: 'var(--color-ink)' },
+};
 
-  const statusMap = {
-    PENDENTE: 'pendente',
-    ACEITO: 'aceito',
-    REJEITADO: 'rejeitado',
-    CONCLUIDO: 'concluido',
-    pendente: 'pendente',
-    aprovado: 'aprovado',
-    recusado: 'recusado',
-    aceito: 'aceito',
-    rejeitado: 'rejeitado',
-    concluido: 'concluido',
-  };
+// status normalizado (minúsculo) → tom e rótulo
+const DEFAULT_STATUSES = {
+  ok: { tone: 'success', label: 'OK' },
+  ativo: { tone: 'success', label: 'Ativo' },
+  aceito: { tone: 'success', label: 'Aceito' },
+  entregue: { tone: 'success', label: 'Entregue' },
+  baixo: { tone: 'warning', label: 'Baixo' },
+  estoque_baixo: { tone: 'warning', label: 'Estoque baixo' },
+  pendente: { tone: 'warning', label: 'Pendente' },
+  recebida: { tone: 'info', label: 'Recebida' },
+  concluido: { tone: 'info', label: 'Concluído' },
+  concluida: { tone: 'success', label: 'Concluída' },
+  zerado: { tone: 'danger', label: 'Zerado' },
+  inativo: { tone: 'danger', label: 'Inativo' },
+  rejeitado: { tone: 'danger', label: 'Rejeitado' },
+  cancelado: { tone: 'danger', label: 'Cancelado' },
+};
 
-  const normalizedStatus = statusMap[status] || status?.toLowerCase();
-  const allVariants = { ...defaultVariants, ...variants };
-  const style = allVariants[normalizedStatus] || allVariants.ok;
-  const label = normalizedStatus ? normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1).replace('_', ' ') : '';
+function humanize(value) {
+  const text = String(value).replaceAll('_', ' ').toLowerCase();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * Selo de status. Status desconhecidos usam o tom neutro (nunca o verde de "ok").
+ * `statuses` permite sobrescrever/estender o mapa: { RECEBIDA: { tone: 'info', label: 'Recebida' } }.
+ * `label` força o texto exibido.
+ */
+export default function StatusBadge({ status, statuses, label, tone }) {
+  if (status === null || status === undefined || status === '') return null;
+
+  const key = String(status).toLowerCase();
+  const config = statuses?.[status] ?? statuses?.[key] ?? DEFAULT_STATUSES[key];
+  const style = TONES[tone ?? config?.tone ?? 'neutral'];
 
   return (
-    <span className="px-2 py-1 rounded" style={{ backgroundColor: style.bg, color: style.color, fontWeight: 'bold', fontSize: '11px', borderRadius: '5px' }}>
-      {label}
+    <span className="badge" style={{ backgroundColor: style.bg, color: style.color }}>
+      {label ?? config?.label ?? humanize(status)}
     </span>
   );
 }

@@ -1,7 +1,29 @@
-import { useState, useCallback } from 'react';
-import { showApiSuccess, showApiError } from '../lib/apiError';
+import { useCallback, useState } from 'react';
+import { showApiError, showApiSuccess } from '../lib/apiError';
 
-export default function useCrudForm({ initialData, validate, service, loadData, onSuccess, successMessage }) {
+const hasErrors = (errors) => Object.values(errors).some(Boolean);
+
+/**
+ * Estado e ações de um formulário de cadastro/edição.
+ *
+ * @param initialData   valores do formulário vazio
+ * @param validate      (data, isEditMode) => { campo: mensagem|true|false }
+ * @param service       objeto com criar(payload) e atualizar(id, payload, itemOriginal)
+ * @param loadData      recarrega a listagem depois de salvar
+ * @param fieldLabels   rótulos dos campos para o toast de erro de validação
+ * @param entityName    usado nas mensagens padrão ("Produto cadastrado com sucesso!")
+ * @param successMessage (criado, isEditMode) => string, para mensagens específicas
+ */
+export default function useCrudForm({
+  initialData,
+  validate,
+  service,
+  loadData,
+  fieldLabels,
+  entityName = 'Registro',
+  successMessage,
+  onSuccess,
+}) {
   const [showForm, setShowForm] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
@@ -9,22 +31,21 @@ export default function useCrudForm({ initialData, validate, service, loadData, 
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const resetForm = useCallback(() => {
-    setFormData(initialData);
-    setErrors({});
-  }, [initialData]);
-
-  const handleNew = useCallback(() => {
+  const handleNew = useCallback((data = initialData) => {
     setShowForm(true);
     setEditMode(false);
     setCurrentItem(null);
-    resetForm();
-  }, [resetForm]);
+    setFormData(data);
+    setErrors({});
+  }, [initialData]);
 
-  const handleEdit = useCallback((item) => {
+  /** Abre a edição de `item` já preenchendo o formulário com `data`. */
+  const handleEdit = useCallback((item, data) => {
     setShowForm(true);
     setEditMode(true);
     setCurrentItem(item);
+    if (data) setFormData(data);
+    setErrors({});
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -32,54 +53,55 @@ export default function useCrudForm({ initialData, validate, service, loadData, 
     setShowForm(false);
     setEditMode(false);
     setCurrentItem(null);
-    resetForm();
-  }, [resetForm]);
+    setFormData(initialData);
+    setErrors({});
+  }, [initialData]);
 
-  const handleSave = useCallback(async (mapToPayload) => {
-    const validationErrors = validate?.(formData, editMode) || {};
+  /**
+   * Valida, envia e recarrega. Retorna o item criado/atualizado,
+   * ou undefined quando a validação ou a requisição falham.
+   */
+  const handleSave = useCallback(async (mapToPayload = (data) => data) => {
+    const validationErrors = validate?.(formData, editMode) ?? {};
     setErrors(validationErrors);
-
-    if (Object.values(validationErrors).some(v => v)) return;
+    if (hasErrors(validationErrors)) return undefined;
 
     setSaving(true);
     try {
-      const payload = mapToPayload ? mapToPayload(formData) : formData;
-      let createdItem = null;
-      if (editMode && currentItem) {
-        await service.atualizar(currentItem.id, payload);
-      } else {
-        createdItem = await service.criar(payload);
-      }
-      await loadData();
+      const payload = mapToPayload(formData);
+      const saved = editMode && currentItem
+        ? await service.atualizar(currentItem.id, payload, currentItem)
+        : await service.criar(payload);
+
+      await loadData?.();
       handleCancel();
-      showApiSuccess(successMessage?.(createdItem, editMode) ?? (editMode ? 'Item atualizado com sucesso!' : 'Item cadastrado com sucesso!'));
-      onSuccess?.();
-      return createdItem;
+      showApiSuccess(
+        successMessage?.(saved, editMode)
+          ?? `${entityName} ${editMode ? 'atualizado' : 'cadastrado'} com sucesso!`,
+      );
+      onSuccess?.(saved);
+      return saved ?? null;
     } catch (err) {
-      const { fieldErrors } = parseApiError(err);
-      if (fieldErrors) {
-        setErrors(fieldErrors);
-      }
-      showApiError(err);
+      const fieldErrors = showApiError(err, fieldLabels);
+      if (fieldErrors) setErrors(fieldErrors);
+      return undefined;
     } finally {
       setSaving(false);
     }
-  }, [formData, editMode, currentItem, service, loadData, handleCancel, onSuccess, successMessage, validate]);
+  }, [formData, editMode, currentItem, service, loadData, handleCancel, onSuccess, successMessage, validate, fieldLabels, entityName]);
 
-  const handleClearField = useCallback((field) => {
-    setErrors(prev => ({ ...prev, [field]: false }));
+  /** Atualiza um campo e limpa o erro dele. */
+  const setField = useCallback((field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  }, []);
+
+  const clearFieldError = useCallback((field) => {
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
   }, []);
 
   return {
     showForm, editMode, currentItem, formData, setFormData, errors, setErrors, saving,
-    handleNew, handleEdit, handleCancel, handleSave, handleClearField,
+    handleNew, handleEdit, handleCancel, handleSave, setField, clearFieldError,
   };
-}
-
-function parseApiError(error) {
-  const data = error.response?.data;
-  if (data?.errors) {
-    return { message: data.detail || 'Campos obrigatórios não preenchidos', fieldErrors: data.errors };
-  }
-  return { message: data?.detail || data?.message || error.message || 'Erro desconhecido', fieldErrors: null };
 }

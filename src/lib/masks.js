@@ -143,7 +143,7 @@ export function applyMask(value, maskType) {
 
 export function validateMask(value, maskType) {
   const mask = MASKS[maskType];
-  if (!mask) return true;
+  if (!mask?.validate) return true;
   return mask.validate(value);
 }
 
@@ -153,19 +153,19 @@ export function getMaskPlaceholder(maskType) {
 }
 
 export function unmaskCurrency(value) {
-  return MASKS.currency.parse(value);
+  return MASKS.currency.parse(String(value ?? ''));
 }
 
+/** Converte um número (ex.: 1234.5) para o texto da máscara de moeda (ex.: "1.234,50"). */
+export function toCurrencyMask(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const number = Number(value);
+  if (Number.isNaN(number)) return '';
+  return MASKS.currency.format(number.toFixed(2).replace('.', ','));
+}
+
+/** Valor "limpo" do campo: número para moeda, só dígitos para as demais máscaras. */
 export function unmaskValue(value, maskType) {
-  switch (maskType) {
-    case 'currency':
-      return MASKS.currency.parse(value);
-    case 'cpf':
-    case 'cnpj':
-    case 'phone':
-    case 'cep':
-      return value.replace(/\D/g, '');
-    default:
-      return value.replace(/\D/g, '');
-  }
+  const text = String(value ?? '');
+  return maskType === 'currency' ? MASKS.currency.parse(text) : text.replace(/\D/g, '');
 }

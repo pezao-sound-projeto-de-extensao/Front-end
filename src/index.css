@@ -1,25 +1,213 @@
 @import "tailwindcss";
-/* Estilos base do site inteiro */
 
-* {
-  box-sizing: border-box;
-}
+/* Modo escuro controlado pela classe .dark no <html> (ver context/ThemeContext) */
+@custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --bg-page: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-input: #f8fafc;
-  --border-subtle: #e2e8f0;
-  --text-primary: #0d2137;
-  --text-secondary: #475569;
-  --shadow-card: 0 1px 2px rgba(13,33,55,0.06), 0 1px 3px rgba(13,33,55,0.08);
-  --shadow-card-hover: 0 4px 8px rgba(13,33,55,0.10), 0 2px 4px rgba(13,33,55,0.06);
+/*
+ * Tokens de design do StockFlow.
+ * Cada cor vira utilitário do Tailwind: --color-primary → bg-primary, text-primary, border-primary...
+ * Use os tokens em vez de hex soltos no código. O modo escuro só redefine estes valores.
+ *
+ * Texto (contraste sobre branco, mínimo WCAG AA = 4,5:1):
+ *   navy 15:1 · ink 11:1 · body 7,6:1 · muted 5,6:1 · subtle 4,6:1
+ */
+@theme {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  --color-primary: #1565c0;
+  --color-primary-hover: #0f4f99;
+  --color-primary-soft: #eaf2fb;
+  --color-accent: #2dbae1;
+
+  --color-navy: #0d2137;
+  --color-ink: #1a3a55;
+  --color-body: #475569;
+  --color-muted: #4a6b85;
+  --color-subtle: #5b7a93;
+
+  --color-page: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f0f4f8;
+  --color-input: #f8fafc;
+  --color-line: #e2e8f0;
+  --color-line-strong: #d0dde8;
+
+  --color-sidebar: #0d2137;
+  --color-sidebar-text: #a8cce8;
+
+  --color-success: #17804c;
+  --color-success-soft: #e6f7ef;
+  --color-warning: #9a5200;
+  --color-warning-strong: #e07b00;
+  --color-warning-soft: #fff4e0;
+  --color-danger: #d93636;
+  --color-danger-strong: #b3261e;
+  --color-danger-soft: #fdeaea;
+
+  --radius-card: 12px;
+  --shadow-card: 0 1px 2px rgba(13,33,55,0.05), 0 1px 3px rgba(13,33,55,0.07);
+  --shadow-card-hover: 0 6px 16px rgba(13,33,55,0.10), 0 2px 4px rgba(13,33,55,0.06);
   --shadow-panel: 0 2px 6px rgba(13,33,55,0.06);
+  --shadow-modal: 0 24px 64px rgba(0,0,0,0.3);
+
+  --animate-slide-in-right: slide-in-right 200ms ease-out;
+  --animate-fade-in: fade-in 150ms ease-out;
 }
 
-body {
-  margin: 0;
-  background-color: var(--bg-page);
-  font-family: 'Segoe UI', Arial, sans-serif;
-  color: var(--text-primary);
+/* Paleta escura: mesmos nomes, valores invertidos para fundos escuros */
+.dark {
+  --color-primary: #4a9af0;
+  --color-primary-hover: #6aaef5;
+  --color-primary-soft: #16304d;
+
+  --color-navy: #e8eef5;
+  --color-ink: #d3dde8;
+  --color-body: #aebccb;
+  --color-muted: #9bb0c4;
+  --color-subtle: #8aa2b8;
+
+  --color-page: #0b1622;
+  --color-surface: #13212f;
+  --color-surface-muted: #1a2b3c;
+  --color-input: #0f1c29;
+  --color-line: #233648;
+  --color-line-strong: #2d4458;
+
+  --color-sidebar: #08111b;
+
+  --color-success: #4cc38a;
+  --color-success-soft: #123326;
+  --color-warning: #f0a54a;
+  --color-warning-soft: #3a2a12;
+  --color-danger: #f26b6b;
+  --color-danger-strong: #f58a8a;
+  --color-danger-soft: #3b1a1c;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-card-hover: 0 6px 16px rgba(0,0,0,0.5);
+  --shadow-panel: 0 2px 6px rgba(0,0,0,0.4);
+
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-page);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    color: var(--color-navy);
+    line-height: 1.5;
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.01em;
+  }
+}
+
+/* @utility (e não .classe) para poder ser combinada com @apply e com variantes do Tailwind */
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+@layer components {
+  .toolbar {
+    @apply card flex flex-wrap gap-3 p-3 mb-4;
+  }
+
+  .field-label {
+    @apply block mb-1.5 text-sm font-medium text-ink;
+  }
+
+  .field-hint {
+    @apply mt-1.5 text-xs text-subtle;
+  }
+
+  .field-error {
+    @apply mt-1.5 text-xs font-medium text-danger;
+  }
+
+  /* Estados de hover/foco/erro em CSS — sem useState por campo */
+  .field {
+    width: 100%;
+    background-color: var(--color-input);
+    border: 1px solid var(--color-line-strong);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-navy);
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+  }
+  .field::placeholder {
+    color: var(--color-subtle);
+    opacity: .8;
+  }
+  .field:hover:not(:disabled) {
+    border-color: var(--color-subtle);
+  }
+  .field:focus {
+    outline: none;
+    background-color: var(--color-surface);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 15%, transparent);
+  }
+  .field:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded bg-surface-muted;
+  }
+
+  /* Números alinhados em colunas (estoque, preços) */
+  .numeric {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes shrink-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media print {
+  aside, header, .print\:hidden {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
 }

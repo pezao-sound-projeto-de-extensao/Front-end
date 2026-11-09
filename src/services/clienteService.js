@@ -1,15 +1,3 @@
-import { api } from './api';
+import { createResource } from './resource';
 
-export const clienteService = {
-  listar: async (params = {}) => {
-    const response = await api.get('/clientes', { params });
-    return response.data;
-  },
-
-  buscarPorId: async (id) => {
-    const response = await api.get(`/clientes/${id}`);
-    return response.data;
-  },
-};
-
-export default clienteService;
+export const clienteService = createResource('/clientes', ['listar', 'buscarPorId']);

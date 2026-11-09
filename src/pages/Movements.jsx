@@ -1,244 +1,259 @@
-import { useEffect, useState } from 'react';
-import { Plus, Minus, ArrowLeftRight } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { ArrowLeftRight, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { movimentacaoService } from '../services/movimentacaoService';
+import { formatDate, todayISO } from '../lib/formatters';
+import { showApiError, showApiSuccess } from '../lib/apiError';
+import { cn } from '../lib/utils';
+import useCrudForm from '../hooks/useCrudForm';
+import useDebouncedValue from '../hooks/useDebouncedValue';
+import useApiData, { EMPTY_PAGE } from '../hooks/useApiData';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
 import DataTable from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import FormPanel from '../components/FormPanel';
-import FormField, { FormInput, FormSelect, FormNumber, FormDate } from '../components/FormField';
+import FormField, { FormInput, FormSelect, FormNumber } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
-import useCrudForm from '../hooks/useCrudForm';
-import { formatDate } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+import RowActions from '../components/RowActions';
+import { MovementQuantity, MovementTypeBadge } from '../components/MovementType';
+import { isEntrada } from '../lib/movimentacao';
 
-const MOVEMENT_FIELDS = { 
-  itemId: 'Produto', 
-  quantidade: 'Quantidade', 
-  tipo: 'Tipo', 
-  data: 'Data', 
-  observacao: 'Observação' 
+const PAGE_SIZE = 10;
+
+const MOVEMENT_FIELDS = {
+  itemId: 'Produto',
+  quantidade: 'Quantidade',
+  tipo: 'Tipo',
+  data: 'Data',
+  observacao: 'Observação',
 };
 
-const initialFormData = {
-  itemId: '',
-  tipo: 'entrada',
-  quantidade: '',
-  data: new Date().toISOString().split('T')[0],
-  observacao: '',
+const TYPE_OPTIONS = [
+  { value: '', label: 'Todos' },
+  { value: 'entrada', label: 'Entradas' },
+  { value: 'saida', label: 'Saídas' },
+];
+
+const fetchActiveItems = () => itemService.listar({ size: 1000, ativo: true });
+
+const createForm = (tipo = 'entrada') => ({ itemId: '', tipo, quantidade: '', data: todayISO(), observacao: '' });
+const EMPTY_FORM = createForm();
+
+function validateMovement(data) {
+  return {
+    itemId: !data.itemId,
+    quantidade: !data.quantidade || parseInt(data.quantidade, 10) <= 0,
+  };
+}
+
+const toFormData = (movement) => ({
+  itemId: String(movement.item?.id ?? ''),
+  tipo: String(movement.tipo).toLowerCase(),
+  quantidade: String(movement.quantidade),
+  data: movement.data?.split('T')[0] ?? todayISO(),
+  observacao: movement.observacao ?? '',
+});
+
+const toPayload = (data) => ({
+  itemId: parseInt(data.itemId, 10),
+  tipo: data.tipo,
+  quantidade: parseInt(data.quantidade, 10),
+  data: data.data,
+  observacao: data.observacao,
+});
+
+/**
+ * O back-end não tem PUT para movimentação: a edição apaga a original (revertendo o estoque)
+ * e registra a nova. Se o registro falhar, a original é recriada para não perder o lançamento.
+ */
+async function replaceMovement(original, payload) {
+  await movimentacaoService.deletar(original.id);
+  try {
+    return await movimentacaoService.registrar(payload);
+  } catch (error) {
+    try {
+      await movimentacaoService.registrar(toPayload(toFormData(original)));
+    } catch (restoreError) {
+      console.error('Não foi possível restaurar a movimentação original:', restoreError);
+    }
+    throw error;
+  }
+}
+
+const movementService = {
+  criar: movimentacaoService.registrar,
+  atualizar: (_id, payload, original) => replaceMovement(original, payload),
 };
+
+function TypeToggle({ value, onChange }) {
+  const option = (tipo, label, activeClass, idleClass) => (
+    <button
+      type="button"
+      aria-pressed={value === tipo}
+      onClick={() => onChange(tipo)}
+      className={cn('flex items-center justify-center gap-2 rounded-lg border-[1.5px] py-3 text-sm transition-colors', value === tipo ? activeClass : idleClass)}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="grid grid-cols-2 gap-3" role="group" aria-label="Tipo de movimentação">
+      {option('entrada', 'Entrada', 'border-primary bg-primary font-bold text-white', 'border-primary/30 bg-surface text-primary')}
+      {option('saida', 'Saída', 'border-danger bg-danger font-bold text-white', 'border-danger/30 bg-surface text-danger-strong')}
+    </div>
+  );
+}
 
 export default function Movements() {
-  const [movements, setMovements] = useState([]);
-  const [itens, setItens] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('Todos');
+  const [typeFilter, setTypeFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const { showForm, editMode, currentItem, formData, setFormData, errors, setErrors, saving, handleNew, handleEdit, handleCancel, handleClearField } = useCrudForm({
-    initialData: initialFormData,
-    validate: (data) => ({
-      itemId: !data.itemId,
-      quantidade: !data.quantidade || parseInt(data.quantidade) <= 0,
-    }),
-    service: { criar: movimentacaoService.registrar, atualizar: async () => {} },
-    loadData: loadMovements,
+  const debouncedSearch = useDebouncedValue(searchTerm);
+
+  const fetchMovements = useCallback(() => movimentacaoService.listar({
+    page: currentPage,
+    size: PAGE_SIZE,
+    tipo: typeFilter || undefined,
+    search: debouncedSearch || undefined,
+  }), [currentPage, typeFilter, debouncedSearch]);
+
+  const { data: page, loading, reload: loadMovements } = useApiData(fetchMovements, EMPTY_PAGE);
+  // O select de produto mostra o estoque atual, então recarrega junto com a lista
+  const { data: itensPage, reload: loadItens } = useApiData(fetchActiveItems, EMPTY_PAGE);
+  const movements = page.content ?? [];
+  const totalPages = page.totalPages || 1;
+  const itens = itensPage.content ?? [];
+
+  const reload = useCallback(() => Promise.all([loadMovements(), loadItens()]), [loadMovements, loadItens]);
+
+  const form = useCrudForm({
+    initialData: EMPTY_FORM,
+    validate: validateMovement,
+    service: movementService,
+    loadData: reload,
+    fieldLabels: MOVEMENT_FIELDS,
+    successMessage: (_, isEdit) => (isEdit ? 'Movimentação atualizada com sucesso!' : 'Movimentação registrada com sucesso!'),
   });
+  const { showForm, editMode, formData, errors, saving, setField } = form;
 
-  async function loadMovements() {
-    try {
-      setLoading(true);
-      const params = { page: currentPage, size: 10 };
-      if (typeFilter !== 'Todos') params.tipo = typeFilter;
-      const response = await movimentacaoService.listar(params);
-      let content = Array.isArray(response) ? response : (response.content || []);
-      if (searchTerm) content = content.filter(m => m.item?.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
-      setMovements(content.map(m => ({
-        id: m.id,
-        date: m.data ? m.data.split('T')[0] : '',
-        productName: m.item?.nome || '',
-        category: m.item?.categoriaNome || '',
-        tipo: m.tipo,
-        quantity: m.quantidade,
-        stockBefore: m.estoqueAntes,
-        stockAfter: m.estoqueDepois,
-        observation: m.observacao || '',
-        itemId: m.item?.id,
-      })));
-      setTotalPages(response.totalPages || 1);
-    } catch (error) {
-      console.error('Erro ao carregar movimentações:', error);
-    } finally { setLoading(false); }
-  }
-
-  async function loadItens() {
-    try {
-      const response = await itemService.listar({ size: 1000, ativo: true });
-      setItens(response.content || []);
-    } catch (error) { console.error('Erro ao carregar itens:', error); }
-  }
-
-  useEffect(() => { loadMovements(); loadItens(); }, [currentPage, searchTerm, typeFilter]);
-
-  const handleNewMovement = (prefillTipo) => {
-    handleNew();
-    setFormData({ ...initialFormData, tipo: prefillTipo || 'entrada' });
-  };
-
-  const handleEditMovement = (movement) => {
-    handleEdit(movement);
-    setFormData({
-      itemId: movement.itemId?.toString() || '',
-      tipo: movement.tipo,
-      quantidade: movement.quantity.toString(),
-      data: movement.date,
-      observacao: movement.observation,
-    });
-  };
-
-  const handleSaveMovement = async () => {
-    const validationErrors = {
-      itemId: !formData.itemId,
-      quantidade: !formData.quantidade || parseInt(formData.quantidade) <= 0,
-    };
-    Object.keys(validationErrors).length > 0 && handleClearField(Object.keys(validationErrors)[0]);
-
-    try {
-      const payload = {
-        itemId: parseInt(formData.itemId),
-        tipo: formData.tipo,
-        quantidade: parseInt(formData.quantidade),
-        data: formData.data,
-        observacao: formData.observacao,
-      };
-      if (editMode && currentItem) {
-        await movimentacaoService.deletar(currentItem.id);
-      }
-      await movimentacaoService.registrar(payload);
-      await loadMovements();
-      handleCancel();
-      showApiSuccess(editMode ? 'Movimentação atualizada com sucesso!' : 'Movimentação registrada com sucesso!');
-    } catch (error) {
-      const fieldErrors = showApiError(error, MOVEMENT_FIELDS);
-      if (fieldErrors) setErrors(fieldErrors);
-    }
-  };
+  const handleSave = () => form.handleSave(toPayload);
 
   const confirmDelete = async () => {
     try {
-      await movimentacaoService.deletar(deleteModal.id);
-      await loadMovements();
+      await movimentacaoService.deletar(deleteTarget.id);
+      await reload();
       showApiSuccess('Movimentação excluída com sucesso!');
-    } catch (error) { showApiError(error, MOVEMENT_FIELDS); }
-    setDeleteModal({ open: false, id: null });
+    } catch (error) {
+      showApiError(error, MOVEMENT_FIELDS);
+    } finally {
+      setDeleteTarget(null);
+    }
   };
 
   const columns = [
-    { header: 'Data', accessor: 'date', render: (row) => formatDate(row.date) },
-    { header: 'Produto', accessor: 'productName' },
-    { header: 'Categoria', accessor: 'category' },
     {
-      header: 'Tipo', accessor: 'tipo',
+      header: 'Produto',
+      primary: true,
       render: (row) => (
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: row.tipo === 'entrada' ? '#e3edf7' : '#fdeaea', color: row.tipo === 'entrada' ? '#1565c0' : '#c0392b', fontWeight: 'bold', fontSize: '11px', borderRadius: '5px' }}>
-          {row.tipo === 'entrada' ? '+ Entrada' : '− Saída'}
-        </span>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-navy">{row.item?.nome ?? '—'}</p>
+          <p className="truncate text-xs text-subtle">{row.item?.categoriaNome || 'Sem categoria'}</p>
+        </div>
       ),
     },
-    { header: 'Quantidade', accessor: 'quantity', render: (row) => <span style={{ fontWeight: 'bold', color: row.tipo === 'entrada' ? '#1565c0' : '#c0392b' }}>{row.tipo === 'entrada' ? '+' : '−'}{row.quantity}</span> },
-    { header: 'Estoque antes', accessor: 'stockBefore' },
-    { header: 'Estoque depois', accessor: 'stockAfter' },
-    { header: 'Observação', accessor: 'observation', render: (row) => row.observation || '—' },
+    { header: 'Data', render: (row) => <span className="numeric">{formatDate(row.data)}</span> },
+    { header: 'Tipo', render: (row) => <MovementTypeBadge tipo={row.tipo} /> },
+    { header: 'Quantidade', numeric: true, render: (row) => <MovementQuantity tipo={row.tipo} quantidade={row.quantidade} /> },
     {
-      header: 'Ações', align: 'right',
+      header: 'Estoque',
+      numeric: true,
       render: (row) => (
-        <div className="flex justify-end gap-3">
-          <Button variant="ghost" size="sm" onClick={() => handleEditMovement(row)} style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}>Editar</Button>
-          <Button variant="ghost" size="sm" onClick={() => setDeleteModal({ open: true, id: row.id })} style={{ fontSize: '12px', fontWeight: 'bold', color: '#e84040' }}>Excluir</Button>
-        </div>
+        <span className="text-body">{row.estoqueAntes} <span aria-hidden="true">→</span><span className="sr-only">para</span> <span className="font-semibold text-navy">{row.estoqueDepois}</span></span>
+      ),
+    },
+    { header: 'Observação', render: (row) => <span className="line-clamp-1 text-body">{row.observacao || '—'}</span> },
+    {
+      header: 'Ações', align: 'right', width: '120px',
+      render: (row) => (
+        <RowActions
+          actions={[
+            { label: 'Editar', icon: Pencil, onClick: () => form.handleEdit(row, toFormData(row)) },
+            { label: 'Excluir', icon: Trash2, tone: 'danger', onClick: () => setDeleteTarget(row) },
+          ]}
+        />
       ),
     },
   ];
 
+  const entrada = isEntrada(formData.tipo);
+
   return (
-    <PageLayout title="Movimentações" icon={ArrowLeftRight} actions={<>
-      <Button onClick={() => handleNewMovement('entrada')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Nova entrada</Button>
-      <Button variant="outline" onClick={() => handleNewMovement('saida')} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#e84040', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid #e84040', boxShadow: 'var(--shadow-card)' }}><Minus className="w-4 h-4" /> Nova saída</Button>
-    </>}>
-      {showForm && (
-        <FormPanel
-          title={
-            <span className="flex items-center gap-2">
-              {editMode ? 'Editar movimentação' : 'Nova movimentação'}
-              <span className="px-2 py-0.5 rounded flex items-center gap-1" style={{ backgroundColor: formData.tipo === 'entrada' ? '#e3edf7' : '#fdeaea', color: formData.tipo === 'entrada' ? '#1565c0' : '#c0392b', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>
-                {formData.tipo === 'entrada' ? 'Entrada' : 'Saída'}
-              </span>
-            </span>
-          }
-          accentColor={formData.tipo === 'entrada' ? '#1565c0' : '#e84040'}
-        >
+    <PageLayout
+      title="Movimentações"
+      description="Entradas e saídas de estoque, com o saldo antes e depois de cada uma."
+      actions={
+        <>
+          <Button onClick={() => form.handleNew(createForm('entrada'))}><Plus className="h-4 w-4" /> Registrar entrada</Button>
+          <Button variant="outline-danger" onClick={() => form.handleNew(createForm('saida'))}><Minus className="h-4 w-4" /> Registrar saída</Button>
+        </>
+      }
+    >
+      <FormPanel
+        open={showForm}
+        onClose={form.handleCancel}
+        title={editMode ? 'Editar movimentação' : 'Nova movimentação'}
+        badge={<MovementTypeBadge tipo={formData.tipo} />}
+      >
           <FormField label="Tipo de movimentação">
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, tipo: 'entrada' })}
-                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors"
-                style={formData.tipo === 'entrada'
-                  ? { backgroundColor: '#1565c0', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #1565c0' }
-                  : { backgroundColor: '#ffffff', color: '#1565c0', fontWeight: '500', border: '1.5px solid #bcd6ee' }}
-              >
-                Entrada
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, tipo: 'saida' })}
-                className="flex items-center justify-center gap-2 py-3 rounded-lg text-sm transition-colors"
-                style={formData.tipo === 'saida'
-                  ? { backgroundColor: '#e84040', color: '#ffffff', fontWeight: 'bold', boxShadow: 'inset 0 0 0 1.5px #e84040' }
-                  : { backgroundColor: '#ffffff', color: '#c0392b', fontWeight: '500', border: '1.5px solid #f5c6c6' }}
-              >
-                Saída
-              </button>
-            </div>
+            <TypeToggle value={formData.tipo} onChange={(tipo) => setField('tipo', tipo)} />
           </FormField>
           <FormField label="Produto" error={errors.itemId}>
-            <FormSelect value={formData.itemId} onChange={(e) => { setFormData({ ...formData, itemId: e.target.value }); handleClearField('itemId'); }} error={errors.itemId}>
+            <FormSelect value={formData.itemId} onChange={(e) => setField('itemId', e.target.value)}>
               <option value="">Selecione um produto</option>
-              {itens.map(p => <option key={p.id} value={p.id}>{p.nome} (Estoque: {p.quantidadeAtual})</option>)}
+              {itens.map((p) => <option key={p.id} value={p.id}>{p.nome} (Estoque: {p.quantidadeAtual})</option>)}
             </FormSelect>
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="Quantidade" error={errors.quantidade}>
-              <FormNumber min="1" value={formData.quantidade} onChange={(e) => { setFormData({ ...formData, quantidade: e.target.value }); handleClearField('quantidade'); }} error={errors.quantidade}
-                placeholder={formData.tipo === 'entrada' ? 'Quantidade a adicionar' : 'Quantidade a retirar'} />
+              <FormNumber
+                value={formData.quantidade}
+                onChange={(e) => setField('quantidade', e.target.value)}
+                placeholder={entrada ? 'Quantidade a adicionar' : 'Quantidade a retirar'}
+              />
             </FormField>
             <FormField label="Data">
-              <FormDate value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} />
+              <FormInput type="date" value={formData.data} max={todayISO()} onChange={(e) => setField('data', e.target.value)} />
             </FormField>
           </div>
           <FormField label="Observação">
-            <FormInput placeholder="Opcional" value={formData.observacao} onChange={(e) => setFormData({ ...formData, observacao: e.target.value })} />
+            <FormInput placeholder="Opcional" value={formData.observacao} onChange={(e) => setField('observacao', e.target.value)} />
           </FormField>
-          <CrudFormActions editMode={editMode} saving={saving} onCancel={handleCancel} onSave={handleSaveMovement} />
-        </FormPanel>
-      )}
+          <CrudFormActions editMode={editMode} saving={saving} onCancel={form.handleCancel} onSave={handleSave} />
+      </FormPanel>
 
-      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
+      <div className="toolbar">
         <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar por produto..." />
-        <FilterSelect value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(0); }} width="140px" options={[{ value: 'Todos', label: 'Todos' }, { value: 'entrada', label: 'Entradas' }, { value: 'saida', label: 'Saídas' }]} />
+        <FilterSelect label="Tipo" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(0); }} width="140px" options={TYPE_OPTIONS} />
       </div>
 
-      <DataTable columns={columns} data={movements} loading={loading} emptyMessage="Nenhuma movimentação encontrada" statusAccessor="tipo" />
+      <DataTable columns={columns} data={movements} loading={loading} empty={{ icon: ArrowLeftRight, title: 'Nenhuma movimentação encontrada', description: searchTerm || typeFilter ? 'Tente outra busca ou ajuste o filtro de tipo.' : 'Registre uma entrada ou saída para ver o histórico aqui.' }} />
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
-      <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Excluir movimentação" message="Tem certeza que deseja excluir esta movimentação? O estoque será revertido." confirmLabel="Excluir" />
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Excluir movimentação"
+        message="Tem certeza que deseja excluir esta movimentação? O estoque será revertido."
+        confirmLabel="Excluir"
+      />
     </PageLayout>
   );
 }

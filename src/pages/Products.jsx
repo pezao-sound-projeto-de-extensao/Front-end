@@ -1,10 +1,16 @@
-import { useEffect, useState, useRef } from 'react';
-import { Plus, Camera, ZoomIn, Package } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { Ban, Package, Pencil, Plus, RotateCcw, SearchX } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { itemService } from '../services/itemService';
-import { categoriaService, unidadeService, imagemProdutoService } from '../services/produtoService';
-import { movimentacaoService } from '../services/movimentacaoService';
+import { itemService, imagemProdutoService } from '../services/itemService';
+import { categoriaService } from '../services/categoriaService';
+import { unidadeService } from '../services/unidadeService';
+import { toCurrencyMask, unmaskCurrency } from '../lib/masks';
+import { formatCurrency } from '../lib/formatters';
+import { showApiError, showApiSuccess } from '../lib/apiError';
+import useCrudForm from '../hooks/useCrudForm';
+import useDebouncedValue from '../hooks/useDebouncedValue';
+import useApiData, { EMPTY_PAGE } from '../hooks/useApiData';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
@@ -16,8 +22,11 @@ import FormField, { FormInput, FormSelect, FormCurrency } from '../components/Fo
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
 import PhotoViewerModal from '../components/PhotoViewerModal';
-import useCrudForm from '../hooks/useCrudForm';
-import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+import ProductPhotoField from '../components/ProductPhotoField';
+import ProductThumb from '../components/ProductThumb';
+import RowActions from '../components/RowActions';
+
+const PAGE_SIZE = 10;
 
 const PRODUCT_FIELDS = {
   nome: 'Nome',
@@ -29,291 +38,275 @@ const PRODUCT_FIELDS = {
   precoVenda: 'Preço de venda',
 };
 
+const EMPTY_FORM = { nome: '', categoriaId: '', unidadeId: '', quantidadeAtual: '', quantidadeMinima: '', precoCusto: '', precoVenda: '' };
+
+const STATUS_OPTIONS = [
+  { value: 'todos', label: 'Todos os status' },
+  { value: 'alerta', label: 'Em alerta' },
+];
+
+const ATIVO_OPTIONS = [
+  { value: 'true', label: 'Ativos' },
+  { value: 'false', label: 'Inativos' },
+  { value: 'todos', label: 'Todos' },
+];
+
+function validateProduct(data, isEditMode) {
+  return {
+    nome: !data.nome.trim(),
+    categoriaId: !data.categoriaId,
+    unidadeId: !data.unidadeId,
+    quantidadeAtual: !isEditMode && (String(data.quantidadeAtual).trim() === '' || Number.isNaN(parseInt(data.quantidadeAtual, 10))),
+  };
+}
+
+const toFormData = (product) => ({
+  nome: product.nome,
+  categoriaId: String(product.categoriaId ?? ''),
+  unidadeId: String(product.unidadeId ?? ''),
+  quantidadeAtual: String(product.quantidadeAtual ?? 0),
+  quantidadeMinima: String(product.quantidadeMinima ?? 0),
+  precoCusto: toCurrencyMask(product.precoCusto),
+  precoVenda: toCurrencyMask(product.precoVenda),
+});
+
+// O back-end exige quantidadeAtual também na edição (@Valid), mas só a usa no cadastro,
+// onde ele mesmo registra a movimentação de entrada inicial.
+const toPayload = (data) => ({
+  nome: data.nome.trim(),
+  categoriaId: parseInt(data.categoriaId, 10),
+  unidadeId: parseInt(data.unidadeId, 10),
+  quantidadeAtual: parseInt(data.quantidadeAtual, 10) || 0,
+  quantidadeMinima: parseInt(data.quantidadeMinima, 10) || 0,
+  precoCusto: unmaskCurrency(data.precoCusto),
+  precoVenda: unmaskCurrency(data.precoVenda),
+});
+
+const hasPhoto = (product) => Boolean(product?.imagem?.url);
+
 export default function Products() {
   const location = useLocation();
-  const filterByAlert = location.state?.filterByAlert || false;
-  const fileInputRef = useRef(null);
 
-  const [products, setProducts] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [unidades, setUnidades] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('Todas as categorias');
-  const [statusFilter, setStatusFilter] = useState(filterByAlert ? 'Em alerta' : 'Todos os status');
-  const [ativoFilter, setAtivoFilter] = useState('Ativos');
+  const [categoriaFilter, setCategoriaFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(location.state?.filterByAlert ? 'alerta' : 'todos');
+  const [ativoFilter, setAtivoFilter] = useState('true');
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
+  const [statusModal, setStatusModal] = useState(null); // produto a inativar/reativar
   const [viewPhoto, setViewPhoto] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
 
-  const { showForm, editMode, currentItem, formData, setFormData, errors, saving, handleNew, handleEdit, handleCancel, handleSave, handleClearField } = useCrudForm({
-    initialData: { nome: '', categoriaId: '', unidadeId: '', quantidadeAtual: '', quantidadeMinima: '', precoCusto: '', precoVenda: '' },
-    validate: (data, isEditMode) => ({
-      nome: !data.nome.trim(),
-      quantidadeAtual: !isEditMode && (!data.quantidadeAtual.trim() || isNaN(parseInt(data.quantidadeAtual))),
-      categoriaId: !data.categoriaId,
-      unidadeId: !data.unidadeId,
-    }),
+  const debouncedSearch = useDebouncedValue(searchTerm);
+
+  const fetchProducts = useCallback(() => itemService.listar({
+    page: currentPage,
+    size: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    categoriaId: categoriaFilter || undefined,
+    ativo: ativoFilter === 'todos' ? undefined : ativoFilter,
+    apenasAlerta: statusFilter === 'alerta' || undefined,
+  }), [currentPage, debouncedSearch, categoriaFilter, ativoFilter, statusFilter]);
+
+  const { data: page, loading, reload: loadProducts } = useApiData(fetchProducts, EMPTY_PAGE);
+  const { data: categorias } = useApiData(categoriaService.listar, []);
+  const { data: unidades } = useApiData(unidadeService.listar, []);
+  const products = page.content ?? [];
+  const totalPages = page.totalPages || 1;
+
+  const form = useCrudForm({
+    initialData: EMPTY_FORM,
+    validate: validateProduct,
     service: itemService,
     loadData: loadProducts,
+    fieldLabels: PRODUCT_FIELDS,
+    entityName: 'Produto',
   });
+  const { showForm, editMode, currentItem, formData, errors, saving, setField } = form;
 
-  async function loadProducts() {
+  const resetPhoto = () => { setPhotoFile(null); setRemovePhoto(false); };
+
+  const handleNew = () => { resetPhoto(); form.handleNew(); };
+  const handleEdit = (product) => { resetPhoto(); form.handleEdit(product, toFormData(product)); };
+  const handleCancel = () => { resetPhoto(); form.handleCancel(); };
+
+  const handleSave = async () => {
+    const saved = await form.handleSave(toPayload);
+    if (saved === undefined) return;
+
+    const itemId = saved?.id ?? currentItem?.id;
     try {
-      setLoading(true);
-      const params = { page: currentPage, size: 10, search: searchTerm || undefined };
-      if (categoryFilter !== 'Todas as categorias') params.categoriaId = categorias.find(c => c.nome === categoryFilter)?.id;
-      let response;
-      if (statusFilter === 'Em alerta') {
-        response = await itemService.buscarPorAlerta(params);        
+      if (photoFile) {
+        await imagemProdutoService.upload(itemId, photoFile);
+      } else if (removePhoto && hasPhoto(currentItem)) {
+        await imagemProdutoService.deletar(itemId);
       } else {
-        response = await itemService.listar(params);
+        return;
       }
-      let content = response.content || [];
-      setProducts(content.map(mapProduct));
-      setTotalPages(response.totalPages || 1);
-    } catch (error) { console.error('Erro ao carregar produtos:', error); }
-    finally { setLoading(false); }
-  }
-
-  async function loadCategoriasEUnidades() {
-    try {
-      const [cats, unids] = await Promise.all([categoriaService.listar(), unidadeService.listar()]);
-      setCategorias(cats);
-      setUnidades(unids);
-    } catch (error) { console.error('Erro ao carregar categorias/unidades:', error); }
-  }
-
-  useEffect(() => { loadProducts(); loadCategoriasEUnidades(); }, [currentPage, searchTerm, categoryFilter, statusFilter]);
-  useEffect(() => { if (filterByAlert) setStatusFilter('Em alerta'); }, [filterByAlert]);
-
-  const mapProduct = (p) => {
-    const qtd = p.quantidadeAtual || 0;
-    const min = p.quantidadeMinima || 0;
-    let status = p.status;
-    const iconUrl = p.imagem?.url ? imagemProdutoService.getIconUrl(p.id) : null;
-    const fullUrl = p.imagem?.url ? imagemProdutoService.getFullUrl(p.id) : null;
-    return {
-      id: p.id, name: p.nome, category: p.categoriaNome || '', categoryId: p.categoriaId,
-      unit: p.unidadeNome ? `${p.unidadeNome} (${p.unidadeAbreviacao})` : '', unitId: p.unidadeId,
-      currentStock: qtd, minStock: min,
-      costPrice: p.precoCusto ? `R$ ${p.precoCusto.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
-      salePrice: p.precoVenda ? `R$ ${p.precoVenda.toFixed(2).replace('.', ',')}` : 'R$ 0,00',
-      status,
-      photo: iconUrl,
-      photoFull: fullUrl,
-      ativo: p.ativo,
-      precoCustoRaw: p.precoCusto, precoVendaRaw: p.precoVenda,
-    };
-  };
-
-  const [deleteImage, setDeleteImage] = useState(false);
-
-  useEffect(() => {
-    if (!showForm) setDeleteImage(false);
-  }, [showForm]);
-
-  const handleEditProduct = (product) => {
-    handleEdit(product);
-    setFormData({
-      nome: product.name, categoriaId: product.categoryId || '', unidadeId: product.unitId || '',
-      quantidadeAtual: product.currentStock.toString(), quantidadeMinima: product.minStock.toString(),
-      precoCusto: product.precoCustoRaw?.toString() || '', precoVenda: product.precoVendaRaw?.toString() || '',
-    });
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    setDeleteImage(false);
-  };
-
-  const existingImageUrl = editMode && currentItem?.photo && !deleteImage ? currentItem.photo : null;
-
-  const handleSaveProduct = async () => {
-    const arquivo = fileInputRef.current?.files?.[0];
-    const createdItem = await handleSave((data) => {
-      const payload = {
-        nome: data.nome.trim(), 
-        categoriaId: parseInt(data.categoriaId), 
-        unidadeId: parseInt(data.unidadeId),
-        quantidadeMinima: parseInt(data.quantidadeMinima) || 0,
-        precoCusto: parseFloat((data.precoCusto || '0').replace(',', '.')) || 0,
-        precoVenda: parseFloat((data.precoVenda || '0').replace(',', '.')) || 0,
-      };
-      if (!editMode) {
-        payload.quantidadeAtual = parseInt(data.quantidadeAtual) || 0;
-      }
-      return payload;
-    });
-    if (createdItem === undefined) return;
-
-    // Registrar entrada inicial se for um novo produto com quantidade > 0
-    if (!editMode && createdItem?.id && parseInt(formData.quantidadeAtual) > 0) {
-      try {
-        await movimentacaoService.registrar({
-          itemId: createdItem.id,
-          tipo: 'entrada',
-          quantidade: parseInt(formData.quantidadeAtual),
-          data: new Date().toISOString().split('T')[0],
-          observacao: 'Estoque inicial do cadastro do produto'
-        });
-      } catch (err) {
-        console.error('Erro ao registrar entrada inicial:', err);
-      }
+      await loadProducts();
+    } catch (err) {
+      showApiError(err);
+    } finally {
+      resetPhoto();
     }
+  };
 
+  const confirmStatusChange = async () => {
+    const product = statusModal;
     try {
-      if (arquivo) {
-        await imagemProdutoService.upload(createdItem?.id || currentItem.id, arquivo);
-      } else if (editMode && deleteImage && currentItem?.photo) {
-        await imagemProdutoService.deletar(currentItem.id);
-      } else return;
+      if (product.ativo) {
+        await itemService.inativar(product.id);
+        showApiSuccess('Produto inativado com sucesso!');
+      } else {
+        await itemService.reativar(product.id);
+        showApiSuccess('Produto reativado com sucesso!');
+      }
       await loadProducts();
-    } catch (err) { showApiError(err); }
+    } catch (err) {
+      showApiError(err, PRODUCT_FIELDS);
+    } finally {
+      setStatusModal(null);
+    }
   };
 
-  const confirmDelete = async () => {
-    try {
-      await itemService.inativar(deleteModal.id);
-      await loadProducts();
-      showApiSuccess('Produto inativado com sucesso!');
-    } catch (err) { showApiError(err, PRODUCT_FIELDS); }
-    setDeleteModal({ open: false, id: null });
-  };
+  // Mudar qualquer filtro volta para a primeira página
+  const withPageReset = (setter) => (e) => { setter(e.target.value); setCurrentPage(0); };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesAtivo = ativoFilter === 'Todos' || (ativoFilter === 'Ativos' ? p.ativo : !p.ativo);
-    return matchesSearch && matchesAtivo;
-  });
-
-  const ativoVariants = {
-    true: { bg: '#e6f7ef', color: '#1e9e5e' },
-    false: { bg: '#fdeaea', color: '#c0392b' },
-  };
+  const hasFilters = Boolean(searchTerm || categoriaFilter || statusFilter !== 'todos' || ativoFilter !== 'true');
 
   const columns = [
     {
-      header: 'Foto', accessor: 'photo', width: '64px',
-      render: (row) => row.photo ? (
-        <button type="button" onClick={() => setViewPhoto(row.photoFull)} className="relative group" style={{ display: 'block' }}>
-          <img src={row.photo} alt={row.name} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid #d0dde8' }} />
-          <div className="absolute inset-0 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundColor: 'rgba(21,101,192,0.55)' }}>
-            <ZoomIn style={{ width: '16px', height: '16px', color: '#fff' }} />
+      header: 'Produto',
+      primary: true,
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <ProductThumb
+            size={40}
+            src={hasPhoto(row) ? imagemProdutoService.url(row.id, 'icon') : null}
+            alt={row.nome}
+            onZoom={() => setViewPhoto(imagemProdutoService.url(row.id, 'full'))}
+          />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-navy">{row.nome}</p>
+            <p className="truncate text-xs text-subtle">{row.categoriaNome || 'Sem categoria'}</p>
           </div>
-        </button>
-      ) : (
-        <div className="rounded-lg flex items-center justify-center" style={{ width: '44px', height: '44px', backgroundColor: '#e2eaf3', border: '1.5px dashed #c0d0df' }}>
-          <Camera style={{ width: '18px', height: '18px', color: '#6a92b0' }} />
         </div>
       ),
     },
-    { header: 'Produto', accessor: 'name' },
-    { header: 'Categoria', accessor: 'category' },
-    { header: 'Qtd atual', accessor: 'currentStock' },
-    { header: 'Qtd mínima', accessor: 'minStock' },
-    { header: 'Preço venda', accessor: 'salePrice' },
-    { header: 'Status Estoque', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
-    { header: 'Ativo', accessor: 'ativo', render: (row) => <StatusBadge status={row.ativo ? 'ativo' : 'inativo'} variants={ativoVariants} /> },
+    { header: 'Qtd atual', accessor: 'quantidadeAtual', numeric: true, bold: true },
+    { header: 'Qtd mínima', accessor: 'quantidadeMinima', numeric: true },
+    { header: 'Preço de venda', numeric: true, render: (row) => formatCurrency(row.precoVenda) },
+    { header: 'Estoque', render: (row) => <StatusBadge status={row.status} /> },
+    { header: 'Situação', render: (row) => <StatusBadge status={row.ativo ? 'ativo' : 'inativo'} /> },
     {
-      header: 'Ações', align: 'right',
+      header: 'Ações', align: 'right', width: '140px',
       render: (row) => (
-        <div className="flex justify-end gap-3">
-          <Button variant="ghost" size="sm" onClick={() => handleEditProduct(row)} style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}>Editar</Button>
-          <Button variant="ghost" size="sm" onClick={() => setDeleteModal({ open: true, id: row.id })} style={{ fontSize: '12px', fontWeight: 'bold', color: '#e84040' }}>Excluir</Button>
-        </div>
+        <RowActions
+          actions={[
+            { label: 'Editar', icon: Pencil, onClick: () => handleEdit(row), hidden: !row.ativo },
+            row.ativo
+              ? { label: 'Inativar', icon: Ban, tone: 'danger', onClick: () => setStatusModal(row) }
+              : { label: 'Reativar', icon: RotateCcw, tone: 'success', onClick: () => setStatusModal(row) },
+          ]}
+        />
       ),
     },
   ];
 
   return (
-    <PageLayout title="Produtos" icon={Package} actions={<Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}><Plus className="w-4 h-4" /> Novo produto</Button>}>
-      {showForm && (
-        <FormPanel title={editMode ? 'Editar produto' : 'Novo produto'}>
+    <PageLayout
+      title="Produtos"
+      description="Cadastro, preços e níveis de estoque dos produtos."
+      actions={<Button onClick={handleNew}><Plus className="h-4 w-4" /> Novo produto</Button>}
+    >
+      <FormPanel open={showForm} onClose={handleCancel} title={editMode ? 'Editar produto' : 'Novo produto'}>
           <FormField label="Nome do produto" error={errors.nome}>
-            <FormInput placeholder="Ex: Módulo amplificador 400W" value={formData.nome} onChange={(e) => { setFormData({ ...formData, nome: e.target.value }); handleClearField('nome'); }} error={errors.nome} />
+            <FormInput placeholder="Ex: Módulo amplificador 400W" value={formData.nome} onChange={(e) => setField('nome', e.target.value)} />
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="Categoria" error={errors.categoriaId}>
-              <FormSelect value={formData.categoriaId} onChange={(e) => { setFormData({ ...formData, categoriaId: e.target.value }); handleClearField('categoriaId'); }} error={errors.categoriaId}>
+              <FormSelect value={formData.categoriaId} onChange={(e) => setField('categoriaId', e.target.value)}>
                 <option value="">Selecione</option>
-                {categorias.map(cat => <option key={cat.id} value={cat.id}>{cat.nome}</option>)}
+                {categorias.map((cat) => <option key={cat.id} value={cat.id}>{cat.nome}</option>)}
               </FormSelect>
             </FormField>
             <FormField label="Unidade" error={errors.unidadeId}>
-              <FormSelect value={formData.unidadeId} onChange={(e) => { setFormData({ ...formData, unidadeId: e.target.value }); handleClearField('unidadeId'); }} error={errors.unidadeId}>
+              <FormSelect value={formData.unidadeId} onChange={(e) => setField('unidadeId', e.target.value)}>
                 <option value="">Selecione</option>
-                {unidades.map(un => <option key={un.id} value={un.id}>{un.nome} ({un.abreviacao})</option>)}
+                {unidades.map((un) => <option key={un.id} value={un.id}>{un.nome} ({un.abreviacao})</option>)}
               </FormSelect>
             </FormField>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Quantidade atual" error={errors.quantidadeAtual}>
-              <FormInput 
-                type="number" 
-                min="0" 
-                value={formData.quantidadeAtual} 
-                onChange={(e) => { setFormData({ ...formData, quantidadeAtual: e.target.value }); handleClearField('quantidadeAtual'); }} 
-                error={errors.quantidadeAtual}
-                disabled={editMode}
-                style={editMode ? { backgroundColor: 'var(--bg-input)', opacity: 0.6, cursor: 'not-allowed' } : {}}
-              />
-              {editMode && <p style={{ fontSize: '11px', color: '#6a92b0', marginTop: '4px' }}>Quantidade não pode ser alterada na edição. Use a tela de Movimentações para ajustar estoque.</p>}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField
+              label="Quantidade atual"
+              error={errors.quantidadeAtual}
+              hint={editMode ? 'Na edição a quantidade não muda. Use Movimentações para ajustar o estoque.' : undefined}
+            >
+              <FormInput type="number" min="0" value={formData.quantidadeAtual} disabled={editMode} onChange={(e) => setField('quantidadeAtual', e.target.value)} />
             </FormField>
-            <FormField label="Quantidade mínima">
-              <FormInput type="number" min="0" value={formData.quantidadeMinima} onChange={(e) => setFormData({ ...formData, quantidadeMinima: e.target.value })} />
-              <p style={{ fontSize: '11px', color: '#6a92b0', marginTop: '4px' }}>Abaixo disso, o sistema vai alertar</p>
+            <FormField label="Quantidade mínima" hint="Abaixo disso, o sistema vai alertar">
+              <FormInput type="number" min="0" value={formData.quantidadeMinima} onChange={(e) => setField('quantidadeMinima', e.target.value)} />
             </FormField>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="Preço de custo">
-              <FormCurrency placeholder="0,00" value={formData.precoCusto} onChange={(e) => setFormData({ ...formData, precoCusto: e.target.value })} />
+              <FormCurrency value={formData.precoCusto} onChange={(e) => setField('precoCusto', e.target.value)} />
             </FormField>
             <FormField label="Preço de venda">
-              <FormCurrency placeholder="0,00" value={formData.precoVenda} onChange={(e) => setFormData({ ...formData, precoVenda: e.target.value })} />
+              <FormCurrency value={formData.precoVenda} onChange={(e) => setField('precoVenda', e.target.value)} />
             </FormField>
           </div>
-          <div>
-            <label className="block mb-2 uppercase" style={{ fontSize: '12px', color: '#5a82a0' }}>Foto do produto</label>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => setFormData(prev => ({ ...prev }))} />
-            {fileInputRef.current?.files?.[0] ? (
-              <div className="flex items-start gap-4">
-                <img src={URL.createObjectURL(fileInputRef.current.files[0])} alt="Preview" className="rounded-lg object-cover" style={{ width: '120px', height: '120px', border: '1.5px solid #d0dde8' }} />
-                <div className="flex flex-col gap-2 mt-1">
-                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #d0dde8', fontSize: '12px', fontWeight: 'bold', color: '#1565c0', borderRadius: '8px' }}>Trocar foto</Button>
-                  <Button type="button" variant="outline" onClick={() => { if (fileInputRef.current) fileInputRef.current.value = ''; }} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #fdd', fontSize: '12px', fontWeight: 'bold', color: '#e84040', borderRadius: '8px' }}>Remover foto</Button>
-                </div>
-              </div>
-            ) : existingImageUrl ? (
-              <div className="flex items-start gap-4">
-                <img src={existingImageUrl} alt="Preview" className="rounded-lg object-cover" style={{ width: '120px', height: '120px', border: '1.5px solid #d0dde8' }} />
-                <div className="flex flex-col gap-2 mt-1">
-                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #d0dde8', fontSize: '12px', fontWeight: 'bold', color: '#1565c0', borderRadius: '8px' }}>Trocar foto</Button>
-                  <Button type="button" variant="outline" onClick={() => setDeleteImage(true)} className="px-3 py-2 rounded-lg text-left" style={{ backgroundColor: '#ffffff', border: '1.5px solid #fdd', fontSize: '12px', fontWeight: 'bold', color: '#e84040', borderRadius: '8px' }}>Remover foto</Button>
-                </div>
-              </div>
-            ) : (
-              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center justify-center gap-2 w-full rounded-lg" style={{ backgroundColor: '#ffffff', border: '2px dashed #d0dde8', borderRadius: '10px', padding: '28px 14px', cursor: 'pointer' }}>
-                <Camera style={{ width: '28px', height: '28px', color: '#5a82a0' }} />
-                <span style={{ fontSize: '13px', color: '#5a82a0' }}>Clique para adicionar uma foto</span>
-                <span style={{ fontSize: '11px', color: '#b0c8d8' }}>JPG, PNG ou WEBP</span>
-              </Button>
-            )}
-          </div>
-          <CrudFormActions editMode={editMode} saving={saving} onCancel={handleCancel} onSave={handleSaveProduct} />
-        </FormPanel>
-      )}
 
-      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-        <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar produto pelo nome..." />
-        <FilterSelect value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todas as categorias', label: 'Todas as categorias' }, ...categorias.map(c => ({ value: c.nome, label: c.nome }))]} />
-        <FilterSelect value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(0); }} width="180px" options={[{ value: 'Todos os status', label: 'Todos os status' }, { value: 'Em alerta', label: 'Em alerta' }]} />
-        <FilterSelect value={ativoFilter} onChange={(e) => { setAtivoFilter(e.target.value); setCurrentPage(0); }} width="140px" options={[{ value: 'Ativos', label: 'Ativos' }, { value: 'Inativos', label: 'Inativos' }, { value: 'Todos', label: 'Todos' }]} />
+          <ProductPhotoField
+            file={photoFile}
+            existingUrl={editMode && hasPhoto(currentItem) && !removePhoto ? imagemProdutoService.url(currentItem.id, 'icon') : null}
+            onFileChange={setPhotoFile}
+            onRemoveExisting={() => setRemovePhoto(true)}
+          />
+
+          <CrudFormActions editMode={editMode} saving={saving} onCancel={handleCancel} onSave={handleSave} />
+      </FormPanel>
+
+      <div className="toolbar">
+        <SearchBar value={searchTerm} onChange={withPageReset(setSearchTerm)} placeholder="Buscar produto pelo nome..." />
+        <FilterSelect
+          label="Categoria"
+          value={categoriaFilter}
+          onChange={withPageReset(setCategoriaFilter)}
+          width="180px"
+          options={[{ value: '', label: 'Todas as categorias' }, ...categorias.map((c) => ({ value: String(c.id), label: c.nome }))]}
+        />
+        <FilterSelect label="Status do estoque" value={statusFilter} onChange={withPageReset(setStatusFilter)} width="180px" options={STATUS_OPTIONS} />
+        <FilterSelect label="Situação" value={ativoFilter} onChange={withPageReset(setAtivoFilter)} width="140px" options={ATIVO_OPTIONS} />
       </div>
 
-      <DataTable columns={columns} data={filteredProducts} loading={loading} emptyMessage="Nenhum produto encontrado" ativoAccessor="ativo" />
+      <DataTable
+        columns={columns}
+        data={products}
+        loading={loading}
+        empty={hasFilters
+          ? { icon: SearchX, title: 'Nenhum produto encontrado', description: 'Tente outra busca ou ajuste os filtros.' }
+          : { icon: Package, title: 'Nenhum produto cadastrado', description: 'Cadastre o primeiro produto para começar a controlar o estoque.', action: <Button onClick={handleNew}><Plus className="h-4 w-4" /> Novo produto</Button> }}
+        isRowInactive={(row) => !row.ativo}
+      />
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
       <PhotoViewerModal src={viewPhoto} onClose={() => setViewPhoto(null)} />
-      <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Excluir produto" message="Tem certeza que deseja inativar este produto? Essa ação pode ser desfeita reativando depois." confirmLabel="Inativar" />
+      <ConfirmModal
+        isOpen={Boolean(statusModal)}
+        onClose={() => setStatusModal(null)}
+        onConfirm={confirmStatusChange}
+        title={statusModal?.ativo ? 'Inativar produto' : 'Reativar produto'}
+        message={statusModal?.ativo
+          ? `Inativar "${statusModal?.nome}"? Ele deixa de aparecer nas listas, mas pode ser reativado depois.`
+          : `Reativar "${statusModal?.nome}"?`}
+        confirmLabel={statusModal?.ativo ? 'Inativar' : 'Reativar'}
+        confirmVariant={statusModal?.ativo ? 'destructive' : 'default'}
+      />
     </PageLayout>
   );
 }
