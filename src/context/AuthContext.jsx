@@ -1,6 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService } from '../services/authService';
-import { api } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -9,44 +8,43 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const restoreSession = async () => {
-      try {
-        const response = await api.get('/auth/me');
-        setUser(response.data);
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    restoreSession();
+    authService.me()
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  async function login(email, senha) {
-    const data = await authService.login(email, senha);
-    const { username, usuario } = data;
-    setUser({ username, ...usuario });
-  }
+  const login = useCallback(async (email, senha) => {
+    await authService.login(email, senha);
+    // Usa sempre o mesmo formato de usuário do /auth/me (id, nome, email, cargo)
+    setUser(await authService.me());
+  }, []);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     try {
       await authService.logout();
     } catch (error) {
       console.error('Erro ao fazer logout no backend:', error);
     }
     setUser(null);
-  }
+  }, []);
 
-  function hasPermission(permission) {
-    return user?.cargo?.permissoes?.includes(permission);
-  }
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading, hasPermission }}>
-      {children}
-    </AuthContext.Provider>
+  const hasPermission = useCallback(
+    (permission) => Boolean(user?.cargo?.permissoes?.includes(permission)),
+    [user],
   );
+
+  const value = useMemo(
+    () => ({ user, loading, login, logout, hasPermission }),
+    [user, loading, login, logout, hasPermission],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = () => useContext(AuthContext);
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth precisa estar dentro de <AuthProvider>');
+  return context;
+}

@@ -1,22 +1,30 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, FileText, CheckCircle, XCircle, ChevronDown, Search as SearchIcon, Eye } from 'lucide-react';
+import { CheckCircle, Eye, FileText, Pencil, Plus, SearchX, Trash2, XCircle } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { itemService } from '../services/itemService';
 import { orcamentoService } from '../services/orcamentoService';
 import { clienteService } from '../services/clienteService';
+import { formatDate, formatCurrency } from '../lib/formatters';
+import { showApiError, showApiSuccess } from '../lib/apiError';
+import useCrudForm from '../hooks/useCrudForm';
+import useDebouncedValue from '../hooks/useDebouncedValue';
+import useApiData, { EMPTY_PAGE } from '../hooks/useApiData';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
 import DataTable from '../components/DataTable';
+import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import FormPanel from '../components/FormPanel';
 import FormField, { FormInput, FormTextarea, FormPhone } from '../components/FormField';
 import CrudFormActions from '../components/CrudFormActions';
 import ConfirmModal from '../components/ConfirmModal';
-import useCrudForm from '../hooks/useCrudForm';
-import { formatDate, formatCurrency } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
+import AutocompleteSelect from '../components/AutocompleteSelect';
+import RowActions from '../components/RowActions';
+
+const PAGE_SIZE = 10;
+const NEW_CLIENT = 'novo';
 
 const BUDGET_FIELDS = {
   clienteId: 'Cliente',
@@ -29,503 +37,239 @@ const BUDGET_FIELDS = {
   'itens.precoUnitario': 'Preço unitário',
 };
 
-const initialFormData = {
+const STATUS_OPTIONS = [
+  { value: '', label: 'Todos' },
+  { value: 'PENDENTE', label: 'Pendente' },
+  { value: 'ACEITO', label: 'Aceito' },
+  { value: 'REJEITADO', label: 'Rejeitado' },
+  { value: 'CONCLUIDO', label: 'Concluído' },
+];
+
+const fetchActiveItems = () => itemService.listar({ size: 1000, ativo: true });
+
+const createItem = () => ({ key: crypto.randomUUID(), itemId: '', descricao: '', quantidade: 1, precoUnitario: 0, isNewProduct: false });
+
+const EMPTY_FORM = {
   clienteId: '',
   clienteNovo: { nome: '', telefone: '' },
   observacao: '',
-  itens: [{ itemId: '', descricao: '', quantidade: 1, precoUnitario: 0, isNewProduct: false }],
+  itens: [createItem()],
 };
 
-function AutocompleteSelect({
-  label,
-  value,
-  onChange,
-  placeholder,
-  options,
-  onSearch,
-  searchValue,
-  onSearchChange,
-  newOptionLabel,
-  onNewOption,
-  disabled,
-  error,
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [inputValue, setInputValue] = useState('');
-  const inputRef = useRef(null);
-  const dropdownRef = useRef(null);
-
-  const filteredOptions = options.filter(opt =>
-    opt.label.toLowerCase().includes(searchValue.toLowerCase())
-  );
-
-  const selectedOption = options.find(opt => opt.value === value);
-
-  useEffect(() => {
-    if (selectedOption) {
-      setInputValue(selectedOption.label);
-    } else if (!isOpen) {
-      setInputValue(searchValue);
-    }
-  }, [selectedOption, searchValue, isOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (inputRef.current && !inputRef.current.contains(e.target) &&
-          dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleKeyDown = (e) => {
-    const maxIndex = filteredOptions.length + (newOptionLabel ? 1 : 0) - 1;
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedIndex(prev => Math.min(prev + 1, maxIndex));
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedIndex(prev => Math.max(prev - 1, -1));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
-          onChange(filteredOptions[highlightedIndex].value);
-          setInputValue(filteredOptions[highlightedIndex].label);
-          setIsOpen(false);
-          setHighlightedIndex(-1);
-        } else if (newOptionLabel && highlightedIndex === filteredOptions.length) {
-          onNewOption();
-          setInputValue('');
-          setIsOpen(false);
-          setHighlightedIndex(-1);
-        }
-        break;
-      case 'Escape':
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const val = e.target.value;
-    setInputValue(val);
-    onSearchChange(val);
-    onSearch(val);
-    setIsOpen(true);
-    setHighlightedIndex(-1);
-  };
-
-  const handleOptionClick = (optValue) => {
-    const opt = options.find(o => o.value === optValue);
-    if (opt) {
-      setInputValue(opt.label);
-    }
-    onChange(optValue);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
-
-  return (
-    <FormField label={label} error={error}>
-      <div className="relative" ref={dropdownRef}>
-        <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            onFocus={() => { onSearch(searchValue); setIsOpen(true); setHighlightedIndex(-1); }}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={disabled}
-            className={`w-full pl-10 pr-10 py-2.5 rounded-lg border ${
-              error ? 'border-red-400' : 'border-gray-300'
-            } bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            style={{ fontSize: '14px' }}
-            autoComplete="off"
-          />
-          <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </div>
-
-        {isOpen && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-            {filteredOptions.length === 0 && !newOptionLabel && (
-              <div className="px-4 py-3 text-gray-500 text-sm">Nenhum resultado encontrado</div>
-            )}
-            {filteredOptions.map((opt, idx) => (
-              <div
-                key={opt.value}
-                onClick={() => handleOptionClick(opt.value)}
-                onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`px-4 py-2 cursor-pointer text-sm ${highlightedIndex === idx ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'}`}
-              >
-                {opt.label}
-              </div>
-            ))}
-            {newOptionLabel && (
-              <div
-                onClick={onNewOption}
-                onMouseEnter={() => setHighlightedIndex(filteredOptions.length)}
-                className={`px-4 py-2 cursor-pointer text-sm border-t ${highlightedIndex === filteredOptions.length ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50'}`}
-                style={{ color: '#1565c0', fontStyle: 'italic' }}
-              >
-                {newOptionLabel}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </FormField>
-  );
+function validateBudget(data) {
+  const errs = {};
+  const isNewClient = data.clienteId === NEW_CLIENT;
+  if (!isNewClient && !data.clienteId) errs.clienteId = 'Selecione um cliente ou cadastre um novo';
+  if (isNewClient && !data.clienteNovo.nome.trim()) errs.clienteNovoNome = 'Nome do cliente é obrigatório';
+  if (data.itens.length === 0) errs.itens = 'O orçamento precisa de pelo menos um item';
+  data.itens.forEach((item, i) => {
+    if (!item.itemId && !item.descricao.trim()) errs[`item${i}Desc`] = 'Selecione um produto ou informe a descrição';
+    if (!item.quantidade || item.quantidade < 1) errs[`item${i}Qtd`] = 'Quantidade deve ser maior que zero';
+    if (item.precoUnitario == null || item.precoUnitario < 0) errs[`item${i}Preco`] = 'Preço unitário não pode ser negativo';
+  });
+  return errs;
 }
+
+const toFormData = (budget) => ({
+  clienteId: String(budget.cliente?.id ?? ''),
+  clienteNovo: { nome: '', telefone: '' },
+  observacao: budget.observacao ?? '',
+  itens: budget.itens.map((item) => ({
+    key: crypto.randomUUID(),
+    itemId: item.itemId ? String(item.itemId) : '',
+    descricao: item.descricao ?? '',
+    quantidade: item.quantidade,
+    precoUnitario: item.precoUnitario,
+    isNewProduct: !item.itemId,
+  })),
+});
+
+// OrcamentoRequest: clienteId OU clienteNovo; cada item com itemId OU descricao
+function toPayload(data) {
+  const isNewClient = data.clienteId === NEW_CLIENT;
+  return {
+    ...(isNewClient
+      ? { clienteNovo: { nome: data.clienteNovo.nome.trim(), telefone: data.clienteNovo.telefone.trim() || undefined } }
+      : { clienteId: parseInt(data.clienteId, 10) }),
+    observacao: data.observacao.trim() || undefined,
+    itens: data.itens.map((item) => ({
+      ...(item.itemId ? { itemId: parseInt(item.itemId, 10) } : { descricao: item.descricao.trim() }),
+      quantidade: item.quantidade,
+      precoUnitario: item.precoUnitario,
+    })),
+  };
+}
+
+const budgetTotal = (itens) => itens.reduce((sum, item) => sum + (item.precoUnitario || 0) * (item.quantidade || 0), 0);
+const isPending = (budget) => budget.status === 'PENDENTE';
 
 export default function Budgets() {
   const navigate = useNavigate();
-  const [budgets, setBudgets] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [clientQuery, setClientQuery] = useState('');
+  const [editingClient, setEditingClient] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('Todos');
-  const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
-  const [aceitarModal, setAceitarModal] = useState({ open: false, id: null });
-  const [rejeitarModal, setRejeitarModal] = useState({ open: false, id: null });
-  const [clientSearchDebounce, setClientSearchDebounce] = useState('');
-  const [showNewClientFields, setShowNewClientFields] = useState(false);
-  const [showNewProductFields, setShowNewProductFields] = useState(false);
-  const [productSearchDebounce, setProductSearchDebounce] = useState({});
-  const clientSearchTimeoutRef = useRef(null);
-  const productSearchTimeoutRef = useRef({});
-  const [editingBudgetId, setEditingBudgetId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pendingAction, setPendingAction] = useState(null); // { type: 'aceitar' | 'rejeitar', budget }
 
-  const { showForm, editMode, formData, setFormData, errors, handleNew, handleEdit, handleCancel, handleSave, handleClearField } = useCrudForm({
-    initialData: initialFormData,
-    validate: (data) => {
-      const errs = {};
-      const isNewClient = data.clienteId === 'novo';
-      if (!isNewClient && !data.clienteId) errs.clienteId = 'Selecione um cliente ou cadastre um novo';
-      if (isNewClient && !data.clienteNovo?.nome?.trim()) errs.clienteNovoNome = 'Nome do cliente é obrigatório';
-      if (!data.itens?.length) errs.itens = 'O orçamento precisa de pelo menos um item';
-      data.itens?.forEach((item, i) => {
-        if (!item.itemId && !item.descricao?.trim()) errs[`item${i}Desc`] = 'Selecione um produto ou informe a descrição';
-        if (!item.quantidade || item.quantidade < 1) errs[`item${i}Qtd`] = 'Quantidade deve ser maior que zero';
-        if (item.precoUnitario == null || item.precoUnitario < 0) errs[`item${i}Preco`] = 'Preço unitário não pode ser negativo';
-      });
-      return errs;
-    },
+  const debouncedSearch = useDebouncedValue(searchTerm);
+  const debouncedClientQuery = useDebouncedValue(clientQuery, 300);
+
+  const fetchBudgets = useCallback(() => orcamentoService.listar({
+    page: currentPage,
+    size: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+  }), [currentPage, debouncedSearch, statusFilter]);
+
+  const fetchClients = useCallback(
+    () => clienteService.listar({ search: debouncedClientQuery || undefined, size: 20 }),
+    [debouncedClientQuery],
+  );
+
+  const { data: page, loading, reload: loadBudgets } = useApiData(fetchBudgets, EMPTY_PAGE);
+  const { data: productsPage } = useApiData(fetchActiveItems, EMPTY_PAGE);
+  const { data: clientsPage } = useApiData(fetchClients, EMPTY_PAGE);
+  const budgets = page.content ?? [];
+  const totalPages = page.totalPages || 1;
+  const products = productsPage.content ?? [];
+  const searchedClients = clientsPage.content ?? [];
+  // O cliente do orçamento em edição aparece no campo mesmo fora da busca atual
+  const clients = editingClient && !searchedClients.some((c) => c.id === editingClient.id)
+    ? [editingClient, ...searchedClients]
+    : searchedClients;
+
+  const form = useCrudForm({
+    initialData: EMPTY_FORM,
+    validate: validateBudget,
     service: orcamentoService,
-    loadData,
+    loadData: loadBudgets,
+    fieldLabels: BUDGET_FIELDS,
+    entityName: 'Orçamento',
   });
+  const { showForm, editMode, formData, setFormData, errors, saving, clearFieldError } = form;
 
-  async function loadData() {
-    try {
-      setLoading(true);
-      const itemsPage = await itemService.listar({ size: 1000, ativo: true });
-      const items = itemsPage.content || itemsPage;
-      setProducts(items.map(i => ({ id: i.id, nome: i.nome, precoVenda: i.precoVenda || 0 })));
-      const data = await orcamentoService.listar({ size: 1000 });
-      setBudgets(data.content || data);
-    } catch (err) {
-      console.error('Erro ao carregar dados:', err);
-      setBudgets([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const searchClients = useCallback(async (search) => {
-    if (clientSearchTimeoutRef.current) clearTimeout(clientSearchTimeoutRef.current);
-    clientSearchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const data = await clienteService.listar({ search, size: 20 });
-        setClients(data.content || data);
-      } catch (err) {
-        console.error('Erro ao buscar clientes:', err);
-        setClients([]);
-      }
-    }, 300);
-  }, []);
-
-  useEffect(() => {
-    loadData();
-    return () => {
-      if (clientSearchTimeoutRef.current) clearTimeout(clientSearchTimeoutRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (formData.clienteId === 'existente') {
-      searchClients(clientSearchDebounce);
-    }
-  }, [clientSearchDebounce, formData.clienteId, searchClients]);
-
-  useEffect(() => {
-    if (!showForm) {
-      setEditingBudgetId(null);
-      setShowNewClientFields(false);
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-  }, [showForm]);
-
-  const handleEditBudget = (budget) => {
-    handleEdit(budget);
-    setEditingBudgetId(budget.id);
-    setShowNewClientFields(false);
-    setFormData({
-      clienteId: budget.cliente?.id?.toString() || '',
-      clienteNovo: { nome: '', telefone: '' },
-      observacao: budget.observacao || '',
-      itens: budget.itens.map(item => ({
-        itemId: item.itemId?.toString() || '',
-        descricao: item.descricao || '',
-        quantidade: item.quantidade,
-        precoUnitario: item.precoUnitario,
-        isNewProduct: !item.itemId,
-      })),
-    });
-  };
-
-  const handleClienteSelect = (value) => {
-    if (value === 'novo') {
-      setShowNewClientFields(true);
-      setFormData(prev => ({ ...prev, clienteId: 'novo', clienteNovo: { nome: '', telefone: '' } }));
-    } else {
-      setShowNewClientFields(false);
-      setFormData(prev => ({ ...prev, clienteId: value, clienteNovo: { nome: '', telefone: '' } }));
-      handleClearField('clienteId');
-    }
-  };
-
-  const handleProductSearch = useCallback((index, search) => {
-    if (productSearchTimeoutRef.current[index]) clearTimeout(productSearchTimeoutRef.current[index]);
-    productSearchTimeoutRef.current[index] = setTimeout(() => {
-      setProductSearchDebounce(prev => ({ ...prev, [index]: search }));
-    }, 300);
-  }, []);
-
-  const clientOptions = clients.map(c => ({
-    value: c.id.toString(),
-    label: `${c.nome} - ${c.telefone || 'Sem telefone'}`,
-  }));
-
-  const addItem = () => setFormData(prev => ({
+  const updateForm = (changes) => setFormData((prev) => ({ ...prev, ...changes }));
+  const updateItem = (index, changes) => setFormData((prev) => ({
     ...prev,
-    itens: [...prev.itens, { itemId: '', descricao: '', quantidade: 1, precoUnitario: 0, isNewProduct: false }],
+    itens: prev.itens.map((item, i) => (i === index ? { ...item, ...changes } : item)),
   }));
 
-  const removeItem = (index) => setFormData(prev => {
-    const newItems = prev.itens.filter((_, i) => i !== index);
-    setProductSearchDebounce(prev => { const n = { ...prev }; delete n[index]; return n; });
-    setShowNewProductFields(prev => { const n = { ...prev }; delete n[index]; return n; });
-    return { ...prev, itens: newItems.length > 0 ? newItems : [{ itemId: '', descricao: '', quantidade: 1, precoUnitario: 0, isNewProduct: false }] };
+  const selectClient = (clienteId) => {
+    updateForm({ clienteId, clienteNovo: { nome: '', telefone: '' } });
+    clearFieldError('clienteId');
+  };
+
+  const selectProduct = (index, itemId) => {
+    const product = products.find((p) => String(p.id) === itemId);
+    updateItem(index, { itemId, descricao: product?.nome ?? '', precoUnitario: product?.precoVenda ?? 0, isNewProduct: false });
+    clearFieldError(`item${index}Desc`);
+  };
+
+  // Produto fora do catálogo: o back-end aceita só a descrição (OrcamentoItemRequest)
+  const startNewProduct = (index, typedText) => {
+    updateItem(index, { itemId: '', descricao: typedText?.trim() ?? '', precoUnitario: 0, isNewProduct: true });
+    clearFieldError(`item${index}Desc`);
+  };
+
+  const addItem = () => setFormData((prev) => ({ ...prev, itens: [...prev.itens, createItem()] }));
+  const removeItem = (index) => setFormData((prev) => {
+    const itens = prev.itens.filter((_, i) => i !== index);
+    return { ...prev, itens: itens.length > 0 ? itens : [createItem()] };
   });
 
-  const handleProductSelect = (index, itemId) => {
-    if (itemId === 'novo') {c} else {
-      setShowNewProductFields(prev => ({ ...prev, [index]: false }));
-      const product = products.find(p => p.id === parseInt(itemId));
-      setFormData(prev => ({
-        ...prev,
-        itens: prev.itens.map((item, i) => i === index ? {
-          ...item,
-          itemId,
-          descricao: product?.nome || '',
-          precoUnitario: product?.precoVenda || 0,
-          isNewProduct: false,
-        } : item),
-      }));
-      handleClearField(`item${index}Id`);
-    }
-  };
-
-  const handleSaveBudget = () => {
-    handleSave((data) => {
-      const isNewClient = data.clienteId === 'novo';
-      const payload = {
-        ...(!isNewClient && data.clienteId && { clienteId: parseInt(data.clienteId) }),
-        ...(isNewClient && {
-          clienteNovo: {
-            nome: data.clienteNovo.nome.trim(),
-            telefone: data.clienteNovo.telefone?.trim() || undefined,
-          },
-        }),
-        observacao: data.observacao?.trim() || undefined,
-        itens: data.itens.map(item => ({
-          ...(item.itemId && { itemId: parseInt(item.itemId) }),
-          ...(!item.itemId && item.descricao?.trim() && { descricao: item.descricao.trim() }),
-          quantidade: item.quantidade,
-          precoUnitario: item.precoUnitario,
-        })),
-      };
-      return payload;
-    }, BUDGET_FIELDS);
-  };
-
-  const handleAceitar = (id) => {
-    setAceitarModal({ open: true, id });
-  };
-
-  const confirmAceitar = async () => {
+  const confirmPendingAction = async () => {
+    const { type, budget } = pendingAction;
     try {
-      await orcamentoService.aceitar(aceitarModal.id);
-      showApiSuccess('Orçamento aceito com sucesso! Encomendas geradas.');
-      await loadData();
+      if (type === 'aceitar') {
+        await orcamentoService.aceitar(budget.id);
+        showApiSuccess('Orçamento aceito com sucesso! Encomendas geradas.');
+      } else {
+        await orcamentoService.rejeitar(budget.id);
+        showApiSuccess('Orçamento rejeitado com sucesso!');
+      }
+      await loadBudgets();
     } catch (err) {
       showApiError(err, BUDGET_FIELDS);
+    } finally {
+      setPendingAction(null);
     }
-    setAceitarModal({ open: false, id: null });
   };
 
-  const handleRejeitar = (id) => {
-    setRejeitarModal({ open: true, id });
+  const editBudget = (budget) => {
+    setEditingClient(budget.cliente ?? null);
+    form.handleEdit(budget, toFormData(budget));
   };
 
-  const confirmRejeitar = async () => {
-    try {
-      await orcamentoService.rejeitar(rejeitarModal.id);
-      showApiSuccess('Orçamento rejeitado com sucesso!');
-      await loadData();
-    } catch (err) {
-      showApiError(err, BUDGET_FIELDS);
-    }
-    setRejeitarModal({ open: false, id: null });
-  };
-
-  const confirmDelete = async () => {
-    try {
-      await orcamentoService.rejeitar(deleteModal.id);
-      await loadData();
-      showApiSuccess('Orçamento rejeitado (exclusão não disponível, marcado como rejeitado)!');
-    } catch (err) {
-      showApiError(err, BUDGET_FIELDS);
-    }
-    setDeleteModal({ open: false, id: null });
-  };
-
-  const isEditable = (status) => status === 'PENDENTE';
-
-  const filteredBudgets = budgets.filter(budget => {
-    const matchesSearch = budget.cliente?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      budget.id?.toString().includes(searchTerm);
-    const matchesStatus = statusFilter === 'Todos' || budget.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const clientOptions = clients.map((c) => ({ value: String(c.id), label: `${c.nome} - ${c.telefone || 'Sem telefone'}` }));
+  const productOptions = products.map((p) => ({ value: String(p.id), label: `${p.nome} - ${formatCurrency(p.precoVenda ?? 0)}` }));
 
   const columns = [
-    { header: 'Número', accessor: 'id', render: (row) => <span style={{ fontWeight: '500' }}>#{row.id}</span> },
-    { header: 'Data', accessor: 'criadoEm', render: (row) => formatDate(row.criadoEm) },
-    { header: 'Cliente', accessor: 'clienteNome', render: (row) => row.cliente?.nome || '—' },
-    { header: 'Telefone', accessor: 'clienteTelefone', render: (row) => row.cliente?.telefone || '—' },
-    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} /> },
-    { header: 'Total', accessor: 'valorTotal', align: 'right', render: (row) => <span style={{ fontWeight: 'bold' }}>{formatCurrency(row.valorTotal)}</span> },
     {
-      header: 'Ações', align: 'right',
+      header: 'Cliente',
+      primary: true,
       render: (row) => (
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleEditBudget(row)}
-            disabled={!isEditable(row.status)}
-            style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0', opacity: isEditable(row.status) ? 1 : 0.5 }}
-          >
-            Editar
-          </Button>
-          {(row.status === 'PENDENTE' || row.status === 'ACEITO') && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(`/budgets/${row.id}`)}
-              style={{ fontSize: '12px', fontWeight: 'bold', color: '#1565c0' }}
-            >
-              <Eye className="w-3 h-3 inline-block mr-1" /> Visualizar
-            </Button>
-          )}
-          {row.status === 'PENDENTE' && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleAceitar(row.id)}
-                style={{ fontSize: '12px', fontWeight: 'bold', color: '#1e9e5e' }}
-              >
-                <CheckCircle className="w-3 h-3 inline-block mr-1" /> Aceitar
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleRejeitar(row.id)}
-                style={{ fontSize: '12px', fontWeight: 'bold', color: '#c0392b' }}
-              >
-                <XCircle className="w-3 h-3 inline-block mr-1" /> Rejeitar
-              </Button>
-            </>
-          )}
+        <div className="min-w-0">
+          <p className="truncate font-medium text-navy">{row.cliente?.nome || '—'}</p>
+          <p className="numeric truncate text-xs text-subtle">#{row.id} · {row.cliente?.telefone || 'Sem telefone'}</p>
         </div>
+      ),
+    },
+    { header: 'Data', render: (row) => <span className="numeric">{formatDate(row.criadoEm)}</span> },
+    { header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+    { header: 'Total', numeric: true, bold: true, render: (row) => formatCurrency(row.valorTotal) },
+    {
+      header: 'Ações', align: 'right', width: '150px',
+      render: (row) => (
+        <RowActions
+          actions={[
+            { label: 'Ver', icon: Eye, onClick: () => navigate(`/budgets/${row.id}`) },
+            { label: 'Editar', icon: Pencil, onClick: () => editBudget(row), hidden: !isPending(row) },
+            { label: 'Aceitar', icon: CheckCircle, tone: 'success', onClick: () => setPendingAction({ type: 'aceitar', budget: row }), hidden: !isPending(row) },
+            { label: 'Rejeitar', icon: XCircle, tone: 'danger', onClick: () => setPendingAction({ type: 'rejeitar', budget: row }), hidden: !isPending(row) },
+          ]}
+        />
       ),
     },
   ];
 
-  const statusOptions = [
-    { value: 'Todos', label: 'Todos' },
-    { value: 'PENDENTE', label: 'Pendente' },
-    { value: 'ACEITO', label: 'Aceito' },
-    { value: 'REJEITADO', label: 'Rejeitado' },
-    { value: 'CONCLUIDO', label: 'Concluído' },
-  ];
-
-  const calculateTotal = () => {
-    return formData.itens.reduce((sum, item) => sum + (item.precoUnitario || 0) * (item.quantidade || 0), 0);
-  };
+  const isNewClient = formData.clienteId === NEW_CLIENT;
 
   return (
-    <PageLayout title="Orçamentos" icon={FileText} actions={
-      <Button onClick={handleNew} className="px-4 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}>
-        <Plus className="w-4 h-4" /> Novo orçamento
-      </Button>
-    }>
-      {showForm && (
-        <FormPanel title={editMode ? 'Editar orçamento' : 'Novo orçamento'}>
-          <AutocompleteSelect
-            label="Cliente"
-            value={formData.clienteId}
-            onChange={handleClienteSelect}
-            placeholder="Digite para buscar cliente..."
-            options={clientOptions}
-            searchValue={clientSearchDebounce}
-            onSearchChange={setClientSearchDebounce}
-            onSearch={searchClients}
-            newOptionLabel="+ Cadastrar novo cliente"
-            onNewOption={() => handleClienteSelect('novo')}
-            error={errors.clienteId}
-          />
+    <PageLayout
+      title="Orçamentos"
+      description="Propostas para clientes. Ao aceitar, as encomendas são geradas automaticamente."
+      actions={<Button onClick={() => form.handleNew()}><Plus className="h-4 w-4" /> Novo orçamento</Button>}
+    >
+      <FormPanel open={showForm} onClose={form.handleCancel} size="lg" title={editMode ? 'Editar orçamento' : 'Novo orçamento'}>
+          <FormField label="Cliente" error={errors.clienteId}>
+            <AutocompleteSelect
+              value={formData.clienteId}
+              onChange={selectClient}
+              options={clientOptions}
+              onInputChange={setClientQuery}
+              placeholder="Digite para buscar cliente..."
+              newOptionLabel="+ Cadastrar novo cliente"
+              onNewOption={(typed) => {
+                updateForm({ clienteId: NEW_CLIENT, clienteNovo: { nome: typed?.trim() ?? '', telefone: '' } });
+                clearFieldError('clienteId');
+              }}
+            />
+          </FormField>
 
-          {showNewClientFields && (
-            <div className="grid grid-cols-2 gap-4 mt-2">
+          {isNewClient && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField label="Nome do cliente" error={errors.clienteNovoNome}>
                 <FormInput
                   placeholder="Nome completo"
-                  value={formData.clienteNovo?.nome || ''}
-                  onChange={(e) => setFormData({ ...formData, clienteNovo: { ...formData.clienteNovo, nome: e.target.value } })}
-                  error={errors.clienteNovoNome}
+                  value={formData.clienteNovo.nome}
+                  onChange={(e) => { updateForm({ clienteNovo: { ...formData.clienteNovo, nome: e.target.value } }); clearFieldError('clienteNovoNome'); }}
                 />
               </FormField>
               <FormField label="Telefone">
                 <FormPhone
-                  placeholder="(11) 99999-8888"
-                  value={formData.clienteNovo?.telefone || ''}
-                  onChange={(e) => setFormData({ ...formData, clienteNovo: { ...formData.clienteNovo, telefone: e.target.value } })}
+                  value={formData.clienteNovo.telefone}
+                  onChange={(e) => updateForm({ clienteNovo: { ...formData.clienteNovo, telefone: e.target.value } })}
                 />
               </FormField>
             </div>
@@ -534,92 +278,102 @@ export default function Budgets() {
           <FormField label="Observação (opcional)">
             <FormTextarea
               placeholder="Observações sobre o orçamento (máx. 500 caracteres)"
-              value={formData.observacao || ''}
-              onChange={(e) => setFormData({ ...formData, observacao: e.target.value })}
+              value={formData.observacao}
+              onChange={(e) => updateForm({ observacao: e.target.value })}
               rows={3}
               maxLength={500}
             />
           </FormField>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block mb-2 uppercase" style={{ fontSize: '12px', color: '#5a82a0' }}>Itens do orçamento</label>
-              <Button type="button" variant="outline" size="sm" onClick={addItem} style={{ backgroundColor: 'var(--bg-card)', color: '#1565c0', border: '1.5px solid #1565c0', fontSize: '12px', fontWeight: '700', borderRadius: '6px', boxShadow: 'var(--shadow-card)' }}>
-                <Plus className="w-3 h-3" /> Adicionar item
-              </Button>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="field-label mb-0">Itens do orçamento</span>
+              <Button variant="outline-primary" size="sm" onClick={addItem}><Plus className="h-3 w-3" /> Adicionar item</Button>
             </div>
+            {errors.itens && <p className="field-error mb-2" role="alert">{errors.itens}</p>}
+
             <div className="space-y-2">
               {formData.itens.map((item, index) => (
-                <div key={index} className="flex gap-2 items-start p-3 border border-gray-300 rounded-lg bg-gray-50">
-                  <div className="flex-1">
-                    <AutocompleteSelect
-                      label="Produto/Serviço"
-                      value={item.itemId || (item.isNewProduct ? 'novo' : '')}
-                      onChange={(val) => handleProductSelect(index, val)}
-                      placeholder="Buscar produto ou cadastrar novo..."
-                      options={products.map(p => ({ value: p.id.toString(), label: `${p.nome} - ${formatCurrency(p.precoVenda)}` }))}
-                      searchValue={productSearchDebounce[index] || ''}
-                      onSearchChange={(val) => setProductSearchDebounce(prev => ({ ...prev, [index]: val }))}
-                      onSearch={(val) => handleProductSearch(index, val)}
-                      newOptionLabel="+ Cadastrar novo produto"
-                      onNewOption={() => handleProductSelect(index, 'novo')}
-                      error={errors[`item${index}Desc`] || errors[`item${index}Id`]}
-                    />
+                <div key={item.key} className="flex flex-wrap items-start gap-2 rounded-lg border border-line-strong bg-surface-muted p-3">
+                  <div className="min-w-[220px] flex-1 space-y-2">
+                    <FormField label="Produto/Serviço" error={item.isNewProduct ? undefined : errors[`item${index}Desc`]}>
+                      <AutocompleteSelect
+                        value={item.itemId}
+                        onChange={(val) => selectProduct(index, val)}
+                        options={productOptions}
+                        placeholder="Buscar produto ou cadastrar novo..."
+                        newOptionLabel="+ Produto fora do catálogo"
+                        onNewOption={(typed) => startNewProduct(index, typed)}
+                      />
+                    </FormField>
+                    {item.isNewProduct && (
+                      <FormField label="Descrição do novo produto" error={errors[`item${index}Desc`]}>
+                        <FormInput
+                          placeholder="Ex: Kit de fiação 4mm"
+                          value={item.descricao}
+                          onChange={(e) => { updateItem(index, { descricao: e.target.value }); clearFieldError(`item${index}Desc`); }}
+                        />
+                      </FormField>
+                    )}
                   </div>
-                  <FormField label="Quantidade" error={errors[`item${index}Qtd`]} style={{ width: '100px', marginBottom: 0 }}>
+                  <FormField label="Quantidade" error={errors[`item${index}Qtd`]} className="w-[100px]">
                     <FormInput
                       type="number"
                       min="1"
                       value={item.quantidade}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        itens: prev.itens.map((it, i) => i === index ? { ...it, quantidade: parseInt(e.target.value) || 1 } : it)
-                      }))}
-                      error={errors[`item${index}Qtd`]}
+                      onChange={(e) => updateItem(index, { quantidade: parseInt(e.target.value, 10) || 1 })}
                     />
                   </FormField>
-                  <FormField label="Preço Unit." error={errors[`item${index}Preco`]} style={{ width: '140px', marginBottom: 0 }}>
+                  <FormField label="Preço unit." error={errors[`item${index}Preco`]} className="w-[140px]">
                     <FormInput
                       type="number"
                       step="0.01"
                       min="0"
                       value={item.precoUnitario}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        itens: prev.itens.map((it, i) => i === index ? { ...it, precoUnitario: parseFloat(e.target.value) || 0 } : it)
-                      }))}
-                      error={errors[`item${index}Preco`]}
-                      placeholder="0,00"
+                      onChange={(e) => updateItem(index, { precoUnitario: parseFloat(e.target.value) || 0 })}
                     />
                   </FormField>
-
                   {formData.itens.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} style={{ color: '#e84040', marginTop: '22px' }}>
-                      <Trash2 className="w-4 h-4" />
+                    <Button variant="ghost-danger" size="icon" onClick={() => removeItem(index)} className="mt-6" aria-label={`Remover item ${index + 1}`}>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
               ))}
             </div>
-            <div className="text-right mt-2" style={{ fontSize: '16px', fontWeight: 'bold', color: '#0d2137' }}>
-              Total: {formatCurrency(calculateTotal())}
-            </div>
+            <p className="mt-2 text-right text-base font-bold text-navy">Total: {formatCurrency(budgetTotal(formData.itens))}</p>
           </div>
 
-          <CrudFormActions editMode={editMode} onCancel={handleCancel} onSave={handleSaveBudget} disabled={editMode && editingBudgetId && !isEditable(budgets.find(b => b.id === editingBudgetId)?.status)} />
-        </FormPanel>
-      )}
+          <CrudFormActions editMode={editMode} saving={saving} onCancel={form.handleCancel} onSave={() => form.handleSave(toPayload)} />
+      </FormPanel>
 
-      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-        <SearchBar value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por cliente ou número..." />
-        <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={statusOptions} />
+      <div className="toolbar">
+        <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar por cliente ou número..." />
+        <FilterSelect label="Status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(0); }} options={STATUS_OPTIONS} />
       </div>
 
-      <DataTable columns={columns} data={filteredBudgets} loading={loading} emptyMessage="Nenhum orçamento encontrado" statusAccessor="status" />
+      <DataTable
+        columns={columns}
+        data={budgets}
+        loading={loading}
+        onRowClick={(row) => navigate(`/budgets/${row.id}`)}
+        empty={searchTerm || statusFilter
+          ? { icon: SearchX, title: 'Nenhum orçamento encontrado', description: 'Tente outra busca ou ajuste o filtro de status.' }
+          : { icon: FileText, title: 'Nenhum orçamento ainda', description: 'Monte o primeiro orçamento com produtos do catálogo ou itens avulsos.', action: <Button onClick={() => form.handleNew()}><Plus className="h-4 w-4" /> Novo orçamento</Button> }}
+      />
+      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
-      <ConfirmModal isOpen={deleteModal.open} onClose={() => setDeleteModal({ open: false, id: null })} onConfirm={confirmDelete} title="Rejeitar orçamento" message="Tem certeza que deseja rejeitar este orçamento? (Exclusão não disponível, será marcado como rejeitado)" confirmLabel="Rejeitar" />
-      <ConfirmModal isOpen={aceitarModal.open} onClose={() => setAceitarModal({ open: false, id: null })} onConfirm={confirmAceitar} title="Aceitar orçamento" message="Aceitar este orçamento? Isso gerará encomendas para os itens." confirmLabel="Aceitar" confirmVariant="default" />
-      <ConfirmModal isOpen={rejeitarModal.open} onClose={() => setRejeitarModal({ open: false, id: null })} onConfirm={confirmRejeitar} title="Rejeitar orçamento" message="Tem certeza que deseja rejeitar este orçamento?" confirmLabel="Rejeitar" confirmVariant="destructive" />
+      <ConfirmModal
+        isOpen={Boolean(pendingAction)}
+        onClose={() => setPendingAction(null)}
+        onConfirm={confirmPendingAction}
+        title={pendingAction?.type === 'aceitar' ? 'Aceitar orçamento' : 'Rejeitar orçamento'}
+        message={pendingAction?.type === 'aceitar'
+          ? 'Aceitar este orçamento? Isso gerará encomendas para os itens.'
+          : 'Tem certeza que deseja rejeitar este orçamento?'}
+        confirmLabel={pendingAction?.type === 'aceitar' ? 'Aceitar' : 'Rejeitar'}
+        confirmVariant={pendingAction?.type === 'aceitar' ? 'default' : 'destructive'}
+      />
     </PageLayout>
   );
 }

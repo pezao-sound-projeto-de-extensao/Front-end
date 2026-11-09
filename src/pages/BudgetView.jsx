@@ -1,252 +1,191 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, FileText, CheckCircle, XCircle, Printer, Package, User } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Printer, Package, User } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { orcamentoService } from '../services/orcamentoService';
+import { formatDate, formatCurrency } from '../lib/formatters';
+import { showApiError, showApiSuccess } from '../lib/apiError';
+import { cn } from '../lib/utils';
 import PageLayout from '../components/PageLayout';
 import StatusBadge from '../components/StatusBadge';
-import { formatDate, formatCurrency } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
 import ConfirmModal from '../components/ConfirmModal';
+import LoadingSpinner from '../components/LoadingSpinner';
+
+const ACTIONS = {
+  aceitar: {
+    run: orcamentoService.aceitar,
+    success: 'Orçamento aceito com sucesso! Encomendas geradas.',
+    title: 'Aceitar orçamento',
+    message: 'Aceitar este orçamento? Isso gerará encomendas para os itens.',
+    label: 'Aceitar',
+    variant: 'default',
+  },
+  rejeitar: {
+    run: orcamentoService.rejeitar,
+    success: 'Orçamento rejeitado com sucesso!',
+    title: 'Rejeitar orçamento',
+    message: 'Tem certeza que deseja rejeitar este orçamento?',
+    label: 'Rejeitar',
+    variant: 'destructive',
+  },
+};
+
+const STATUS_NOTICE = {
+  ACEITO: {
+    Icon: CheckCircle,
+    className: 'border-success/25 bg-success-soft text-success',
+    title: 'Orçamento aceito',
+    body: <>Este orçamento gerou encomendas. <Link to="/orders" className="font-semibold text-primary underline">Ver encomendas</Link></>,
+  },
+  REJEITADO: { Icon: XCircle, className: 'border-danger/25 bg-danger-soft text-danger-strong', title: 'Orçamento rejeitado' },
+  CONCLUIDO: { Icon: CheckCircle, className: 'border-primary/25 bg-primary-soft text-primary', title: 'Orçamento concluído' },
+};
+
+function Info({ label, children }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-body">{label}</p>
+      <div className="mt-1 text-sm text-navy">{children}</div>
+    </div>
+  );
+}
 
 export default function BudgetView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [budget, setBudget] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [aceitarModal, setAceitarModal] = useState({ open: false });
-  const [rejeitarModal, setRejeitarModal] = useState({ open: false });
+  const [pendingAction, setPendingAction] = useState(null);
 
   useEffect(() => {
-    async function loadBudget() {
-      try {
-        setLoading(true);
-        const data = await orcamentoService.buscarPorId(id);
-        setBudget(data);
-      } catch (err) {
-        console.error('Erro ao carregar orçamento:', err);
+    orcamentoService.buscarPorId(id)
+      .then(setBudget)
+      .catch((err) => {
         showApiError(err);
-        navigate('/budgets');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadBudget();
+        navigate('/budgets', { replace: true });
+      })
+      .finally(() => setLoading(false));
   }, [id, navigate]);
 
-  const handleAceitar = () => {
-    setAceitarModal({ open: true });
-  };
-
-  const confirmAceitar = async () => {
+  const confirmAction = async () => {
+    const action = ACTIONS[pendingAction];
     try {
-      await orcamentoService.aceitar(id);
-      showApiSuccess('Orçamento aceito com sucesso! Encomendas geradas.');
-      const updated = await orcamentoService.buscarPorId(id);
-      setBudget(updated);
+      await action.run(id);
+      showApiSuccess(action.success);
+      setBudget(await orcamentoService.buscarPorId(id));
     } catch (err) {
       showApiError(err);
+    } finally {
+      setPendingAction(null);
     }
-    setAceitarModal({ open: false });
   };
 
-  const handleRejeitar = () => {
-    setRejeitarModal({ open: true });
-  };
+  if (loading) return <LoadingSpinner message="Carregando orçamento..." />;
+  if (!budget) return null;
 
-  const confirmRejeitar = async () => {
-    try {
-      await orcamentoService.rejeitar(id);
-      showApiSuccess('Orçamento rejeitado com sucesso!');
-      const updated = await orcamentoService.buscarPorId(id);
-      setBudget(updated);
-    } catch (err) {
-      showApiError(err);
-    }
-    setRejeitarModal({ open: false });
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  if (loading) {
-    return (
-      <PageLayout title="Visualizando orçamento" icon={FileText}>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center" style={{ color: 'var(--text-secondary)' }}>
-            Carregando orçamento...
-          </div>
-        </div>
-      </PageLayout>
-    );
-  }
-
-  if (!budget) {
-    return (
-      <PageLayout title="Orçamento não encontrado" icon={FileText}>
-        <div className="text-center py-12" style={{ color: 'var(--text-secondary)' }}>
-          Orçamento não encontrado
-        </div>
-      </PageLayout>
-    );
-  }
-
-  const isPending = budget.status === 'PENDENTE';
-  const isAccepted = budget.status === 'ACEITO';
+  const notice = STATUS_NOTICE[budget.status];
+  const action = pendingAction && ACTIONS[pendingAction];
 
   return (
     <PageLayout
       title={`Orçamento #${budget.id}`}
-      icon={FileText}
+      description={budget.cliente?.nome}
       actions={
         <>
-          <Button variant="outline" onClick={handlePrint} className="px-4 py-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', border: '1.5px solid var(--border-subtle)', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}>
-            <Printer className="w-4 h-4" /> Imprimir
-          </Button>
-          <Button variant="ghost" onClick={() => navigate('/budgets')} className="px-4 py-2 rounded-lg flex items-center gap-2" style={{ color: '#1565c0', fontSize: '13px', fontWeight: '700', borderRadius: '8px' }}>
-            <ArrowLeft className="w-4 h-4" /> Voltar
-          </Button>
+          <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir</Button>
+          <Button variant="ghost-primary" onClick={() => navigate('/budgets')}><ArrowLeft className="h-4 w-4" /> Voltar</Button>
         </>
       }
     >
       <div className="space-y-6">
-        <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <section className="card p-5">
+          <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Orçamento</span>
-              <h2 className="mt-1" style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)' }}>#{budget.id}</h2>
+              <span className="text-xs font-semibold uppercase tracking-wide text-body">Orçamento</span>
+              <p className="mt-1 text-2xl font-extrabold text-navy">#{budget.id}</p>
             </div>
             <div className="flex items-center gap-4">
               <StatusBadge status={budget.status} />
-              <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Criado em {formatDate(budget.criadoEm)}</span>
+              <span className="text-sm text-body">Criado em {formatDate(budget.criadoEm)}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cliente</p>
-              <p className="mt-1 flex items-center gap-2" style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: '500' }}>
-                <User className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-                {budget.cliente?.nome || '—'}
-              </p>
-            </div>
-            <div>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Telefone</p>
-              <p className="mt-1" style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{budget.cliente?.telefone || '—'}</p>
-            </div>
-            <div>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total</p>
-              <p className="mt-1" style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)' }}>{formatCurrency(budget.valorTotal)}</p>
-            </div>
+          <div className="grid grid-cols-1 gap-4 border-t border-line pt-4 md:grid-cols-3">
+            <Info label="Cliente">
+              <span className="flex items-center gap-2 font-medium"><User className="h-4 w-4 text-body" />{budget.cliente?.nome || '—'}</span>
+            </Info>
+            <Info label="Telefone">{budget.cliente?.telefone || '—'}</Info>
+            <Info label="Total"><span className="text-xl font-extrabold">{formatCurrency(budget.valorTotal)}</span></Info>
           </div>
-        </div>
+        </section>
 
-        <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px' }}>Itens do orçamento</h3>
+        <section className="card p-5">
+          <h2 className="mb-4 text-sm font-bold text-navy">Itens do orçamento</h2>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-sm text-navy">
               <thead>
-                <tr style={{ backgroundColor: 'var(--bg-input)' }}>
-                  <th className="text-left py-3 px-4 uppercase" style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600' }}>Produto / Serviço</th>
-                  <th className="text-center py-3 px-4 uppercase" style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600' }}>Qtd</th>
-                  <th className="text-right py-3 px-4 uppercase" style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600' }}>Preço Unit.</th>
-                  <th className="text-right py-3 px-4 uppercase" style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: '600' }}>Subtotal</th>
+                <tr className="bg-input text-xs font-semibold uppercase">
+                  <th scope="col" className="px-4 py-3 text-left">Produto / Serviço</th>
+                  <th scope="col" className="px-4 py-3 text-center">Qtd</th>
+                  <th scope="col" className="px-4 py-3 text-right">Preço unit.</th>
+                  <th scope="col" className="px-4 py-3 text-right">Subtotal</th>
                 </tr>
               </thead>
               <tbody>
                 {budget.itens?.map((item, index) => (
-                  <tr key={index} style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <td className="py-3 px-4" style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-                        {item.descricao || (item.item?.nome)}
-                      </div>
+                  <tr key={item.id ?? index} className="border-t border-line">
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-2"><Package className="h-4 w-4 text-body" />{item.descricao || item.item?.nome}</span>
                     </td>
-                    <td className="py-3 px-4 text-center" style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '500' }}>{item.quantidade}</td>
-                    <td className="py-3 px-4 text-right" style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{formatCurrency(item.precoUnitario)}</td>
-                    <td className="py-3 px-4 text-right" style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '600' }}>
-                      {formatCurrency((item.precoUnitario || 0) * (item.quantidade || 0))}
-                    </td>
+                    <td className="px-4 py-3 text-center font-medium">{item.quantidade}</td>
+                    <td className="px-4 py-3 text-right">{formatCurrency(item.precoUnitario)}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency((item.precoUnitario || 0) * (item.quantidade || 0))}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ backgroundColor: 'var(--bg-input)' }}>
-                  <td colSpan={3} className="py-3 px-4 text-right" style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '600' }}>Total</td>
-                  <td className="py-3 px-4 text-right" style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-primary)' }}>{formatCurrency(budget.valorTotal)}</td>
+                <tr className="bg-input">
+                  <td colSpan={3} className="px-4 py-3 text-right font-semibold">Total</td>
+                  <td className="px-4 py-3 text-right text-base font-extrabold">{formatCurrency(budget.valorTotal)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
-        </div>
+        </section>
 
         {budget.observacao && (
-          <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '12px' }}>Observação</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{budget.observacao}</p>
+          <section className="card p-5">
+            <h2 className="mb-3 text-sm font-bold text-navy">Observação</h2>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-navy">{budget.observacao}</p>
+          </section>
+        )}
+
+        {budget.status === 'PENDENTE' && (
+          <div className="flex justify-end gap-3 rounded-[var(--radius-card)] border border-line bg-input p-4 print:hidden">
+            <Button variant="outline-danger" onClick={() => setPendingAction('rejeitar')}><XCircle className="h-4 w-4" /> Rejeitar</Button>
+            <Button className="bg-success hover:bg-success/90" onClick={() => setPendingAction('aceitar')}><CheckCircle className="h-4 w-4" /> Aceitar</Button>
           </div>
         )}
 
-        {isPending && (
-          <div className="flex justify-end gap-3 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '10px' }}>
-            <Button variant="outline" onClick={handleRejeitar} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#c0392b', border: '1.5px solid #c0392b', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}>
-              <XCircle className="w-4 h-4" /> Rejeitar
-            </Button>
-            <Button onClick={handleAceitar} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#1e9e5e', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px', boxShadow: 'var(--shadow-card)' }}>
-              <CheckCircle className="w-4 h-4" /> Aceitar
-            </Button>
-          </div>
-        )}
-
-        {isAccepted && (
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#e6f7ef', border: '1px solid #b8e6c9', borderRadius: '10px' }}>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#1e9e5e' }} />
-              <div>
-                <p style={{ fontSize: '13px', fontWeight: '600', color: '#1e9e5e' }}>Orçamento aceito</p>
-                <p style={{ fontSize: '12px', color: '#1a3a55' }}>Este orçamento gerou encomendas. <Link to="/encomendas" style={{ color: '#1565c0', fontWeight: '600', textDecoration: 'underline' }}>Ver encomendas</Link></p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {budget.status === 'REJEITADO' && (
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#fdeaea', border: '1px solid #f5c6c6', borderRadius: '10px' }}>
-            <div className="flex items-center gap-3">
-              <XCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#c0392b' }} />
-              <p style={{ fontSize: '13px', fontWeight: '600', color: '#c0392b' }}>Orçamento rejeitado</p>
-            </div>
-          </div>
-        )}
-
-        {budget.status === 'CONCLUIDO' && (
-          <div className="p-4 rounded-lg" style={{ backgroundColor: '#e3edf7', border: '1px solid #bcd6ee', borderRadius: '10px' }}>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: '#1565c0' }} />
-              <p style={{ fontSize: '13px', fontWeight: '600', color: '#1565c0' }}>Orçamento concluído</p>
+        {notice && (
+          <div className={cn('flex items-center gap-3 rounded-[var(--radius-card)] border p-4', notice.className)}>
+            <notice.Icon className="h-5 w-5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">{notice.title}</p>
+              {notice.body && <p className="text-xs text-ink">{notice.body}</p>}
             </div>
           </div>
         )}
       </div>
 
       <ConfirmModal
-        isOpen={aceitarModal.open}
-        onClose={() => setAceitarModal({ open: false })}
-        onConfirm={confirmAceitar}
-        title="Aceitar orçamento"
-        message="Aceitar este orçamento? Isso gerará encomendas para os itens."
-        confirmLabel="Aceitar"
-        confirmVariant="default"
-      />
-      <ConfirmModal
-        isOpen={rejeitarModal.open}
-        onClose={() => setRejeitarModal({ open: false })}
-        onConfirm={confirmRejeitar}
-        title="Rejeitar orçamento"
-        message="Tem certeza que deseja rejeitar este orçamento?"
-        confirmLabel="Rejeitar"
-        confirmVariant="destructive"
+        isOpen={Boolean(action)}
+        onClose={() => setPendingAction(null)}
+        onConfirm={confirmAction}
+        title={action?.title}
+        message={action?.message}
+        confirmLabel={action?.label}
+        confirmVariant={action?.variant}
       />
     </PageLayout>
   );

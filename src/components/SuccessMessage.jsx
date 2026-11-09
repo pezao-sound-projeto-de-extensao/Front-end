@@ -2,21 +2,15 @@ import { CheckCircle } from 'lucide-react';
 
 export default function SuccessMessage({ title, message }) {
   return (
-    <div className="bg-white p-8 rounded-lg text-center" style={{ border: '1px solid #d0dde8', borderRadius: '10px', boxShadow: '0 4px 24px rgba(13,33,55,0.10)' }}>
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#e6f7ef' }}>
-        <CheckCircle className="w-8 h-8" style={{ color: '#1e9e5e' }} />
+    <div className="card p-8 text-center shadow-[0_4px_24px_rgba(13,33,55,0.10)]" role="status">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success-soft">
+        <CheckCircle className="h-8 w-8 text-success" />
       </div>
-      <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0d2137', marginBottom: '8px' }}>{title}</h3>
-      <p style={{ fontSize: '14px', color: '#5a82a0', marginBottom: '24px' }}>{message}</p>
-      <div className="w-full h-2 rounded-full bg-[#d0dde8] overflow-hidden">
-        <div className="h-full rounded-full" style={{ backgroundColor: '#1565c0', width: '100%', animation: 'progress 2s linear forwards' }} />
+      <h3 className="mb-2 text-lg font-bold text-navy">{title}</h3>
+      <p className="mb-6 text-sm text-muted">{message}</p>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-line-strong">
+        <div className="h-full rounded-full bg-primary [animation:shrink-progress_2s_linear_forwards]" />
       </div>
-      <style jsx>{`
-        @keyframes progress {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-      `}</style>
     </div>
   );
 }

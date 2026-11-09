@@ -1,10 +1,3 @@
-import { api } from './api';
+import { createResource } from './resource';
 
-export const permissaoService = {
-  listar: async () => {
-    const response = await api.get('/permissoes');
-    return response.data;
-  },
-};
-
-export default permissaoService;
+export const permissaoService = createResource('/permissoes', ['listar']);

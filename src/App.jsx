@@ -1,85 +1,56 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider } from './context/AuthContext'
 import { SessionModalProvider } from './context/SessionModalContext'
+import { ThemeProvider, useTheme } from './context/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
-import SessionModalBridge from './components/SessionModalBridge'
 import SessionExpiredModal from './components/SessionExpiredModal'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Products from './pages/Products'
-import Movements from './pages/Movements'
-import Budgets from './pages/Budgets'
-import BudgetView from './pages/BudgetView'
-import Encomendas from './pages/Encomendas'
-import Reports from './pages/Reports'
-import Users from './pages/Users'
-import ChangePassword from './pages/ChangePassword'
-import EsqueciSenha from './pages/EsqueciSenha'
-import RedefinirSenha from './pages/RedefinirSenha'
+import LoadingSpinner from './components/LoadingSpinner'
+import { APP_ROUTES } from './config/routes'
+
+const Login = lazy(() => import('./pages/Login'))
+const ChangePassword = lazy(() => import('./pages/ChangePassword'))
+const EsqueciSenha = lazy(() => import('./pages/EsqueciSenha'))
+const RedefinirSenha = lazy(() => import('./pages/RedefinirSenha'))
+
+function ThemedToaster() {
+  const { theme } = useTheme()
+  return <Toaster position="top-right" richColors closeButton theme={theme} />
+}
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SessionModalProvider>
-        <SessionModalBridge />
-        <SessionExpiredModal />
-        <Toaster position="top-right" richColors closeButton />
+    <ThemeProvider>
+      <AuthProvider>
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/change-password" element={<ChangePassword />} />
-            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
-            <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+          <SessionModalProvider>
+            <SessionExpiredModal />
+            <ThemedToaster />
+            <Suspense fallback={<LoadingSpinner variant="fullpage" />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/change-password" element={<ChangePassword />} />
+                <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+                <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
-            <Route element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/products" element={
-                <ProtectedRoute permissions={['CADASTRAR_ITENS', 'EDITAR_ITENS', 'EXCLUIR_ITENS']}>
-                  <Products />
-                </ProtectedRoute>
-              } />
-              <Route path="/movements" element={
-                <ProtectedRoute permissions={['REGISTRAR_ENTRADA', 'REGISTRAR_SAIDA']}>
-                  <Movements />
-                </ProtectedRoute>
-              } />
-              <Route path="/budgets" element={
-                <ProtectedRoute permissions={['GERENCIAR_ORCAMENTOS']}>
-                  <Budgets />
-                </ProtectedRoute>
-              } />
-              <Route path="/budgets/:id" element={
-                <ProtectedRoute permissions={['GERENCIAR_ORCAMENTOS']}>
-                  <BudgetView />
-                </ProtectedRoute>
-              } />
-              <Route path="/orders" element={
-                <ProtectedRoute permissions={['GERENCIAR_ENCOMENDAS']}>
-                  <Encomendas />
-                </ProtectedRoute>
-              } />
-              <Route path="/reports" element={
-                <ProtectedRoute permissions={['VER_RELATORIOS']}>
-                  <Reports />
-                </ProtectedRoute>
-              } />
-              <Route path="/users" element={
-                <ProtectedRoute permissions={['GERENCIAR_USUARIOS']}>
-                  <Users />
-                </ProtectedRoute>
-              } />
-            </Route>
+                <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                  {APP_ROUTES.map(({ path, permissions, Component }) => (
+                    <Route
+                      key={path}
+                      path={path}
+                      element={<ProtectedRoute permissions={permissions}><Component /></ProtectedRoute>}
+                    />
+                  ))}
+                </Route>
 
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </Suspense>
+          </SessionModalProvider>
         </BrowserRouter>
-      </SessionModalProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ThemeProvider>
   )
 }

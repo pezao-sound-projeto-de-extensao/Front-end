@@ -1,203 +1,213 @@
-import { useState, useEffect } from 'react';
-import { Printer, FileDown, BarChart3 } from 'lucide-react';
-import { Button } from '../components/ui/Button';
+import { useCallback, useState } from 'react';
+import { AlertTriangle, Boxes, PackageCheck, PackageX, Printer } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Button } from '../components/ui/Button';
 import { relatorioService } from '../services/relatorioService';
-import { categoriaService } from '../services/produtoService';
+import { categoriaService } from '../services/categoriaService';
+import { formatDate, toISODate } from '../lib/formatters';
+import useApiData from '../hooks/useApiData';
 import PageLayout from '../components/PageLayout';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import KPICardGrid from '../components/KPICardGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
 import FormField, { FormInput, FormSelect } from '../components/FormField';
-import { formatDate } from '../lib/formatters';
-import { showApiSuccess } from '../lib/apiError';
+import { MovementQuantity, MovementTypeBadge } from '../components/MovementType';
+import { isEntrada } from '../lib/movimentacao';
+
+const PERIODS = [
+  { value: 'hoje', label: 'Hoje' },
+  { value: 'semana', label: 'Últimos 7 dias' },
+  { value: 'mes', label: 'Este mês' },
+  { value: 'personalizado', label: 'Personalizado' },
+];
+
+const CHART_COLORS = { entrada: 'var(--color-primary)', saida: 'var(--color-danger)' };
+
+function rangeFor(period) {
+  const today = new Date();
+  const start = new Date(today);
+  if (period === 'semana') start.setDate(today.getDate() - 6);
+  if (period === 'mes') start.setDate(1);
+  return { start: toISODate(start), end: toISODate(today) };
+}
+
+function Card({ title, aside, children }) {
+  return (
+    <section className="card p-5">
+      <div className="mb-4 flex items-center gap-3">
+        <h2 className="text-sm font-semibold text-navy">{title}</h2>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export default function Reports() {
-  const [period, setPeriod] = useState('Este mês');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [category, setCategory] = useState('Todas');
-  const [categories, setCategories] = useState(['Todas']);
-  const [loading, setLoading] = useState(true);
-  const [kpis, setKpis] = useState({ totalItens: 0, itensOk: 0, itensAlerta: 0, itensZerados: 0 });
-  const [criticalProducts, setCriticalProducts] = useState([]);
-  const [popularProducts, setPopularProducts] = useState([]);
-  const [movements, setMovements] = useState([]);
+  const [period, setPeriod] = useState('mes');
+  const [customRange, setCustomRange] = useState(() => rangeFor('mes'));
+  const [categoriaId, setCategoriaId] = useState('');
+  const { start, end } = period === 'personalizado' ? customRange : rangeFor(period);
 
-  const loadCategories = async () => {
-    try { const data = await categoriaService.listar(); setCategories(['Todas', ...data.map(c => c.nome)]); }
-    catch (err) { console.error('Erro ao carregar categorias:', err); }
+  const fetchReport = useCallback(() => relatorioService.buscar({
+    dataInicio: start,
+    dataFim: end,
+    categoriaId: categoriaId || undefined,
+    page: 0,
+    size: 500,
+  }), [start, end, categoriaId]);
+
+  const { data: categorias } = useApiData(categoriaService.listar, []);
+  const { data: report, loading } = useApiData(fetchReport, null);
+
+  const changeDate = (field) => (e) => {
+    setCustomRange({ start, end, [field]: e.target.value });
+    setPeriod('personalizado');
   };
 
-  const loadReport = async () => {
-    try {
-      setLoading(true);
-      const params = { dataInicio: startDate, dataFim: endDate, page: 0, size: 500 };
-      if (category !== 'Todas') {
-        const catList = await categoriaService.listar();
-        const cat = catList.find(c => c.nome === category);
-        if (cat) params.categoriaId = cat.id;
-      }
-      const data = await relatorioService.buscar(params);
-      setKpis(data.kpis || { totalItens: 0, itensOk: 0, itensAlerta: 0, itensZerados: 0 });
-      setCriticalProducts((data.itensCriticos || []).map((item, i) => ({ id: i, name: item.nome, currentStock: item.quantidadeAtual, minStock: item.quantidadeMinima, status: item.status?.toLowerCase() })));
-      setPopularProducts((data.maisMovimentados || []).map(item => ({ name: item.nome, movementCount: item.totalMovimentacoes, color: '#1565c0' })));
-      setMovements((data.historico?.content || data.historico || []).map((m, i) => ({ id: i, date: m.data, productName: m.itemNome, category: m.categoriaNome, type: m.tipo, quantity: m.quantidade, stockBefore: m.estoqueAntes, stockAfter: m.estoqueDepois, observation: m.observacao })));
-    } catch (err) { console.error('Erro ao carregar relatório:', err); }
-    finally { setLoading(false); }
-  };
+  const kpis = report?.kpis ?? {};
+  const criticos = report?.itensCriticos ?? [];
+  const maisMovimentados = report?.maisMovimentados ?? [];
+  const historico = report?.historico?.content ?? report?.historico ?? [];
 
-  useEffect(() => { loadCategories(); }, []);
-  useEffect(() => {
-    const today = new Date();
-    let start = new Date();
-    let end = new Date();
-    if (period === 'Hoje') { start = today; end = today; }
-    else if (period === 'Esta semana') { start = new Date(today); start.setDate(today.getDate() - 7); }
-    else if (period === 'Este mês') { start = new Date(today.getFullYear(), today.getMonth(), 1); }
-    if (period !== 'Personalizado') { setStartDate(start.toISOString().split('T')[0]); setEndDate(end.toISOString().split('T')[0]); }
-  }, [period]);
-  useEffect(() => { if (startDate && endDate) loadReport(); }, [startDate, endDate, category]);
-
-  const zeradosCount = criticalProducts.filter(p => p.status === 'zerado').length;
-  const chartData = [{ name: 'Entradas', value: movements.filter(m => m.type === 'entrada').length }, { name: 'Saídas', value: movements.filter(m => m.type === 'saida').length }];
-  const COLORS = ['#1565c0', '#e84040'];
-  const maxMovements = popularProducts.length > 0 ? Math.max(...popularProducts.map(p => p.movementCount)) : 1;
+  const entradas = historico.filter((m) => isEntrada(m.tipo)).length;
+  const porTipo = [
+    { name: 'Entradas', value: entradas, color: CHART_COLORS.entrada },
+    { name: 'Saídas', value: historico.length - entradas, color: CHART_COLORS.saida },
+  ];
+  const porCategoria = categorias
+    .map((cat) => ({ name: cat.nome, movimentações: historico.filter((m) => m.categoriaNome === cat.nome).length }))
+    .filter((row) => row.movimentações > 0);
+  const maxMovimentos = Math.max(1, ...maisMovimentados.map((p) => p.totalMovimentacoes));
+  const zerados = criticos.filter((p) => p.status?.toLowerCase() === 'zerado').length;
 
   const kpiCards = [
-    { label: 'Total em estoque', value: kpis.totalItens, color: '#0d2137', description: 'produtos diferentes' },
-    { label: 'Produtos OK', value: kpis.itensOk, color: '#1e9e5e', description: 'dentro do mínimo' },
-    { label: 'Produtos em alerta', value: kpis.itensAlerta, color: '#f39c12', description: 'abaixo do mínimo' },
-    { label: 'Produtos zerados', value: kpis.itensZerados, color: '#e84040', description: 'sem estoque' },
+    { label: 'Total em estoque', value: kpis.totalItens ?? 0, icon: Boxes, tone: 'primary', description: 'produtos diferentes' },
+    { label: 'Produtos OK', value: kpis.itensOk ?? 0, icon: PackageCheck, tone: 'success', description: 'dentro do mínimo' },
+    { label: 'Produtos em alerta', value: kpis.itensAlerta ?? 0, icon: AlertTriangle, tone: 'warning', description: 'abaixo do mínimo' },
+    { label: 'Produtos zerados', value: kpis.itensZerados ?? 0, icon: PackageX, tone: 'danger', description: 'sem estoque' },
   ];
 
-  const statusVariants = {
-    ok: { bg: '#e6f7ef', color: '#1e9e5e' },
-    baixo: { bg: '#fff0e0', color: '#f39c12' },
-    zerado: { bg: '#fdeaea', color: '#e84040' },
-  };
-
   const criticalColumns = [
-    { header: 'Produto', accessor: 'name' },
-    { header: 'QTD', accessor: 'currentStock' },
-    { header: 'Mínimo', accessor: 'minStock' },
-    { header: 'Status', accessor: 'status', render: (row) => <StatusBadge status={row.status} variants={statusVariants} /> },
+    { header: 'Produto', accessor: 'nome' },
+    { header: 'Qtd', accessor: 'quantidadeAtual', numeric: true, bold: true },
+    { header: 'Mínimo', accessor: 'quantidadeMinima', numeric: true },
+    { header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
   ];
 
   const movementColumns = [
-    { header: 'Data', accessor: 'date', render: (row) => formatDate(row.date) },
-    { header: 'Produto', accessor: 'productName' },
-    { header: 'Categoria', accessor: 'category' },
-    {
-      header: 'Tipo', accessor: 'type',
-      render: (row) => (
-        <span className="px-2 py-1 rounded" style={{ backgroundColor: row.type === 'entrada' ? '#e3edf7' : '#fdeaea', color: row.type === 'entrada' ? '#1565c0' : '#c0392b', fontWeight: 'bold', fontSize: '11px', borderRadius: '5px' }}>
-          {row.type === 'entrada' ? '+ Entrada' : '− Saída'}
-        </span>
-      ),
-    },
-    { header: 'Quantidade', accessor: 'quantity', render: (row) => <span style={{ fontWeight: 'bold', color: row.type === 'entrada' ? '#1565c0' : '#c0392b' }}>{row.type === 'entrada' ? '+' : '−'}{row.quantity}</span> },
-    { header: 'Estoque antes', accessor: 'stockBefore' },
-    { header: 'Estoque depois', accessor: 'stockAfter' },
-    { header: 'Observação', accessor: 'observation', render: (row) => row.observation || '—' },
+    { header: 'Data', render: (row) => formatDate(row.data) },
+    { header: 'Produto', accessor: 'itemNome' },
+    { header: 'Categoria', render: (row) => row.categoriaNome || '—' },
+    { header: 'Tipo', render: (row) => <MovementTypeBadge tipo={row.tipo} /> },
+    { header: 'Quantidade', render: (row) => <MovementQuantity tipo={row.tipo} quantidade={row.quantidade} /> },
+    { header: 'Antes', accessor: 'estoqueAntes', numeric: true },
+    { header: 'Depois', accessor: 'estoqueDepois', numeric: true, bold: true },
+    { header: 'Observação', render: (row) => row.observacao || '—' },
   ];
 
   return (
-    <PageLayout title="Relatórios" icon={BarChart3} actions={<>
-      <Button variant="outline" onClick={() => window.print()} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><Printer className="w-4 h-4" /> Imprimir</Button>
-      <Button variant="outline" onClick={() => showApiSuccess('Exportação PDF iniciada!')} className="px-5 py-2.5 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--bg-card)', color: '#1a3a55', fontSize: '13px', fontWeight: '700', borderRadius: '8px', border: '1.5px solid var(--border-subtle)', boxShadow: 'var(--shadow-card)' }}><FileDown className="w-4 h-4" /> Exportar PDF</Button>
-    </>}>
-      <div className="p-6 mb-6 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-panel)' }}>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-          <FormField label="Período">
-            <FormSelect value={period} onChange={(e) => setPeriod(e.target.value)}>
-              <option>Hoje</option><option>Esta semana</option><option>Este mês</option><option>Personalizado</option>
-            </FormSelect>
-          </FormField>
-          <FormField label="De">
-            <FormInput type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPeriod('Personalizado'); }} />
-          </FormField>
-          <FormField label="Até">
-            <FormInput type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPeriod('Personalizado'); }} />
-          </FormField>
-          <FormField label="Categoria">
-            <FormSelect value={category} onChange={(e) => setCategory(e.target.value)}>
-              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </FormSelect>
-          </FormField>
-          <Button onClick={loadReport} className="px-5 py-2.5 rounded-lg" style={{ backgroundColor: '#1565c0', color: '#ffffff', fontSize: '13px', fontWeight: '700', borderRadius: '8px' }}>Aplicar</Button>
-        </div>
+    <PageLayout
+      title="Relatórios"
+      description="Situação do estoque e movimentações no período escolhido."
+      actions={
+        <Button variant="outline" onClick={() => window.print()} title="Use 'Salvar como PDF' na janela de impressão">
+          <Printer className="h-4 w-4" /> Imprimir / PDF
+        </Button>
+      }
+    >
+      <div className="card mb-6 grid grid-cols-1 items-end gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+        <FormField label="Período">
+          <FormSelect value={period} onChange={(e) => setPeriod(e.target.value)}>
+            {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </FormSelect>
+        </FormField>
+        <FormField label="De">
+          <FormInput type="date" value={start} max={end} onChange={changeDate('start')} />
+        </FormField>
+        <FormField label="Até">
+          <FormInput type="date" value={end} min={start} onChange={changeDate('end')} />
+        </FormField>
+        <FormField label="Categoria">
+          <FormSelect value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
+            <option value="">Todas</option>
+            {categorias.map((cat) => <option key={cat.id} value={cat.id}>{cat.nome}</option>)}
+          </FormSelect>
+        </FormField>
       </div>
 
       {loading ? <LoadingSpinner message="Carregando relatório..." /> : (
         <>
           <KPICardGrid cards={kpiCards} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
-              <div className="flex items-center gap-3 mb-3">
-                <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Produtos com estoque crítico</h3>
-                <span className="px-2 py-1 rounded" style={{ backgroundColor: '#fdeaea', color: '#e84040', fontSize: '11px', fontWeight: 'bold', borderRadius: '5px' }}>{zeradosCount} zerados</span>
+              <div className="mb-3 flex items-center gap-3">
+                <h2 className="text-sm font-semibold text-navy">Produtos com estoque crítico</h2>
+                <StatusBadge status="zerado" label={`${zerados} zerados`} />
               </div>
-              <DataTable columns={criticalColumns} data={criticalProducts} emptyMessage="Nenhum produto crítico" />
+              <DataTable columns={criticalColumns} data={criticos} rowKey="nome" emptyMessage="Nenhum produto crítico" />
             </div>
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Produtos mais movimentados</h3>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>este mês</span>
-              </div>
-              <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-                <div className="space-y-4">
-                  {popularProducts.map((product, index) => (
-                    <div key={index}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span style={{ fontSize: '13px', color: '#1a3a55', fontWeight: '500' }}>{product.name}</span>
-                        <span style={{ fontSize: '13px', color: '#1a3a55', fontWeight: 'bold' }}>{product.movementCount}</span>
+
+            <Card title="Produtos mais movimentados" aside={<span className="text-xs text-body">no período</span>}>
+              {maisMovimentados.length === 0 ? (
+                <p className="text-sm text-muted">Nenhuma movimentação no período</p>
+              ) : (
+                <ul className="space-y-4">
+                  {maisMovimentados.map((product) => (
+                    <li key={product.nome}>
+                      <div className="mb-2 flex items-center justify-between text-sm text-ink">
+                        <span className="font-medium">{product.nome}</span>
+                        <span className="font-bold">{product.totalMovimentacoes}</span>
                       </div>
-                      <div className="w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--border-subtle)', height: '8px' }}>
-                        <div className="h-full rounded-full transition-all" style={{ backgroundColor: product.color, width: `${(product.movementCount / maxMovements) * 100}%` }} />
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-line">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${(product.totalMovimentacoes / maxMovimentos) * 100}%` }} />
                       </div>
-                    </div>
+                    </li>
                   ))}
-                </div>
-              </div>
-            </div>
+                </ul>
+              )}
+            </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-              <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px' }}>Movimentações por tipo</h3>
-              <div style={{ width: '100%', height: '200px' }}>
+          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card title="Movimentações por tipo">
+              <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={chartData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                      {chartData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                    <Pie data={porTipo} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {porTipo.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                     </Pie>
                     <Tooltip formatter={(value) => [value, 'movimentações']} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-            <div className="p-5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-              <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '16px' }}>Movimentações por categoria</h3>
-              <div style={{ width: '100%', height: '200px' }}>
+            </Card>
+            <Card title="Movimentações por categoria">
+              <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={categories.slice(1).map(cat => ({ name: cat, movimentações: movements.filter(m => m.category === cat).length }))}>
-                    <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip />
-                    <Bar dataKey="movimentações" fill="#1565c0" radius={[4, 4, 0, 0]} />
+                  <BarChart data={porCategoria}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="movimentações" fill={CHART_COLORS.entrada} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </Card>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Histórico completo de movimentações no período</h3>
-            </div>
-            <DataTable columns={movementColumns} data={movements} emptyMessage="Nenhuma movimentação no período" />
-          </div>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-navy">Histórico completo de movimentações no período</h2>
+            <DataTable
+              columns={movementColumns}
+              data={historico.map((m, i) => ({ ...m, rowId: i }))}
+              rowKey="rowId"
+              emptyMessage="Nenhuma movimentação no período"
+            />
+          </section>
         </>
       )}
     </PageLayout>

@@ -1,26 +1,29 @@
+import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { useAuth } from '../context/AuthContext';
+import { canAccess } from '../config/routes';
+
+function AccessDenied() {
+  // Toast é efeito colateral: fica no effect, não no render (no StrictMode o render roda 2x)
+  useEffect(() => {
+    toast.error('Acesso negado. Você não tem permissão para acessar esta página.', { id: 'access-denied' });
+  }, []);
+  return <Navigate to="/dashboard" replace />;
+}
 
 export default function ProtectedRoute({ children, permissions }) {
   const { user, loading, hasPermission } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return null;
-  }
+  if (loading) return null;
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  const requiredPermissions = permissions || [];
-  if (requiredPermissions.length > 0) {
-    const hasAccess = requiredPermissions.some(p => hasPermission(p));
-    if (!hasAccess) {
-      toast.error('Acesso negado. Você não tem permissão para acessar esta página.');
-      return <Navigate to="/dashboard" replace />;
-    }
+  if (!canAccess(permissions, hasPermission)) {
+    return <AccessDenied />;
   }
 
   return children;

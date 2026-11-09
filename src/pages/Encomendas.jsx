@@ -1,8 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ShoppingBag, Truck, CheckCircle, Package } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CheckCircle, Clock, ShoppingBag, Truck } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { encomendaService } from '../services/encomendaService';
-import { imagemProdutoService } from '../services/produtoService';
+import { imagemProdutoService } from '../services/itemService';
+import { formatDate } from '../lib/formatters';
+import { showApiError, showApiSuccess } from '../lib/apiError';
+import useDebouncedValue from '../hooks/useDebouncedValue';
+import useApiData, { EMPTY_PAGE } from '../hooks/useApiData';
 import PageLayout from '../components/PageLayout';
 import SearchBar from '../components/SearchBar';
 import FilterSelect from '../components/FilterSelect';
@@ -10,106 +15,50 @@ import DataTable from '../components/DataTable';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import ReceberEncomendaModal from '../components/ReceberEncomendaModal';
-import KPICardGrid from '../components/KPICardGrid';
-import { formatDate } from '../lib/formatters';
-import { showApiError, showApiSuccess } from '../lib/apiError.jsx';
-import { useAuth } from '../context/AuthContext';
+import KPICardGrid, { KPICardGridSkeleton } from '../components/KPICardGrid';
+import ProductThumb from '../components/ProductThumb';
 
-const statusVariants = {
-  PENDENTE: { bg: '#fff3cd', color: '#856404' },
-  RECEBIDA: { bg: '#cce5ff', color: '#004085' },
-  CONCLUIDA: { bg: '#d4edda', color: '#155724' },
+const PAGE_SIZE = 10;
+
+const STATUS = {
+  PENDENTE: { tone: 'warning', label: 'Pendente' },
+  RECEBIDA: { tone: 'info', label: 'Recebida' },
+  CONCLUIDA: { tone: 'success', label: 'Concluída' },
 };
 
-function SkeletonKPI() {
-  return (
-    <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-      <div className="animate-pulse">
-        <div className="h-4 w-3/4 rounded" style={{ backgroundColor: '#e0e0e0' }} />
-        <div className="h-8 w-1/2 rounded mt-2" style={{ backgroundColor: '#e0e0e0' }} />
-        <div className="h-3 w-1/3 rounded mt-2" style={{ backgroundColor: '#e0e0e0' }} />
-      </div>
-    </div>
-  );
-}
+const STATUS_OPTIONS = [
+  { value: '', label: 'Todos' },
+  ...Object.entries(STATUS).map(([value, { label }]) => ({ value, label })),
+];
 
-function SkeletonRow() {
-  return (
-    <div className="animate-pulse">
-      <div className="h-10 w-10 rounded" style={{ backgroundColor: '#e0e0e0' }} />
-    </div>
-  );
-}
-
+// A rota já exige GERENCIAR_ENCOMENDAS, então quem está aqui pode receber e concluir.
 export default function Encomendas() {
-  const { hasPermission } = useAuth();
-  const canManage = hasPermission('GERENCIAR_ENCOMENDAS');
-
-  const [encomendas, setEncomendas] = useState([]);
-  const [kpis, setKpis] = useState({ pendentes: 0, recebidas: 0, concluidasNoMes: 0 });
-  const [loading, setLoading] = useState(true);
-  const [loadingKpis, setLoadingKpis] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [pageSize] = useState(10);
-  const [receberModal, setReceberModal] = useState({ open: false, encomenda: null });
+  const [receberTarget, setReceberTarget] = useState(null);
 
-  const loadEncomendas = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = { page: currentPage, size: pageSize };
-      if (searchTerm) params.search = searchTerm;
-      if (statusFilter !== 'Todos') params.status = statusFilter;
-      const response = await encomendaService.listar(params);
-      setEncomendas(response.content || []);
-      setTotalPages(response.totalPages || 1);
-    } catch (err) {
-      console.error('Erro ao carregar encomendas:', err);
-      showApiError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, pageSize, searchTerm, statusFilter]);
+  const debouncedSearch = useDebouncedValue(searchTerm);
 
-  const loadKpis = useCallback(async () => {
-    setLoadingKpis(true);
-    try {
-      const data = await encomendaService.kpis();
-      setKpis(data);
-    } catch (err) {
-      console.error('Erro ao carregar KPIs:', err);
-    } finally {
-      setLoadingKpis(false);
-    }
-  }, []);
+  const fetchEncomendas = useCallback(() => encomendaService.listar({
+    page: currentPage,
+    size: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+  }), [currentPage, debouncedSearch, statusFilter]);
 
-  useEffect(() => {
-    loadEncomendas();
-    loadKpis();
-  }, [loadEncomendas, loadKpis]);
+  const { data: page, loading, reload: loadEncomendas } = useApiData(fetchEncomendas, EMPTY_PAGE);
+  const { data: kpis, reload: loadKpis } = useApiData(encomendaService.kpis, null);
+  const encomendas = page.content ?? [];
+  const totalPages = page.totalPages || 1;
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    setCurrentPage(0);
-  };
+  const refresh = () => Promise.all([loadEncomendas(), loadKpis()]);
 
-  const handleStatusChange = (e) => {
-    setStatusFilter(e.target.value);
-    setCurrentPage(0);
-  };
-
-  const handleReceber = (encomenda) => {
-    setReceberModal({ open: true, encomenda });
-  };
-
-  const handleReceberConfirm = async (id, itemId) => {
+  const handleReceber = async (id, itemId) => {
     try {
       await encomendaService.receber(id, itemId);
       showApiSuccess('Encomenda recebida com sucesso!');
-      loadEncomendas();
-      loadKpis();
+      refresh();
     } catch (err) {
       showApiError(err);
       throw err;
@@ -120,8 +69,7 @@ export default function Encomendas() {
     try {
       await encomendaService.concluir(id);
       showApiSuccess('Encomenda concluída com sucesso!');
-      loadEncomendas();
-      loadKpis();
+      refresh();
     } catch (err) {
       showApiError(err);
     }
@@ -129,121 +77,68 @@ export default function Encomendas() {
 
   const columns = [
     {
-      header: 'Foto',
-      accessor: 'fotoUrl',
-      width: '64px',
-      render: (row) => row.itemId && row.fotoUrl ? (
-        <img src={imagemProdutoService.getIconUrl(row.itemId)} alt={row.descricao} className="rounded-lg object-cover" style={{ width: '44px', height: '44px', border: '1.5px solid #d0dde8' }} />
-      ) : (
-        <div className="rounded-lg flex items-center justify-center" style={{ width: '44px', height: '44px', backgroundColor: '#e2eaf3', border: '1.5px dashed #c0d0df' }}>
-          <Package style={{ width: '18px', height: '18px', color: '#6a92b0' }} />
+      header: 'Item',
+      primary: true,
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <ProductThumb size={40} src={row.itemId && row.fotoUrl ? imagemProdutoService.url(row.itemId, 'icon') : null} alt={row.descricao} />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-navy">{row.descricao}</p>
+            <p className="truncate text-xs text-subtle">{row.clienteNome}</p>
+          </div>
         </div>
       ),
     },
-    { header: 'Item', accessor: 'descricao' },
-    { header: 'Cliente', accessor: 'clienteNome' },
-    { header: 'Qtd', accessor: 'quantidade', align: 'center', width: '60px' },
+    { header: 'Qtd', accessor: 'quantidade', numeric: true, bold: true, width: '80px' },
     {
-      header: 'Orçamento',
-      accessor: 'orcamentoId',
-      width: '100px',
-      align: 'center',
-      render: (row) => <span style={{ fontWeight: '500', color: '#1565c0' }}>#{row.orcamentoId}</span>,
+      header: 'Orçamento', width: '110px',
+      render: (row) => <Link to={`/budgets/${row.orcamentoId}`} className="numeric font-medium text-primary hover:underline">#{row.orcamentoId}</Link>,
     },
+    { header: 'Status', width: '130px', render: (row) => <StatusBadge status={row.status} statuses={STATUS} /> },
+    { header: 'Criada em', width: '130px', render: (row) => <span className="numeric">{formatDate(row.criadoEm)}</span> },
     {
-      header: 'Status',
-      accessor: 'status',
-      width: '130px',
-      render: (row) => <StatusBadge status={row.status} variants={statusVariants} />,
-    },
-    {
-      header: 'Data',
-      accessor: 'criadoEm',
-      width: '160px',
-      render: (row) => formatDate(row.criadoEm),
-    },
-    {
-      header: 'Ações',
-      align: 'right',
-      width: '160px',
-      render: (row) => {
-        if (!canManage) return <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Sem permissão</span>;
-        return (
-          <div className="flex justify-end gap-2">
-            {row.status === 'PENDENTE' && (
-              <Button variant="default" size="sm" onClick={() => handleReceber(row)} style={{ fontSize: '12px', fontWeight: 'bold', backgroundColor: '#f59e0b', color: '#fff', borderRadius: '6px' }}>
-                <Truck className="w-3 h-3 mr-1" /> Receber
-              </Button>
-            )}
-            {row.status === 'RECEBIDA' && (
-              <Button variant="default" size="sm" onClick={() => handleConcluir(row.id)} style={{ fontSize: '12px', fontWeight: 'bold', backgroundColor: '#1565c0', color: '#fff', borderRadius: '6px' }}>
-                <CheckCircle className="w-3 h-3 mr-1" /> Concluir
-              </Button>
-            )}
-            {row.status === 'CONCLUIDA' && (
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Concluída</span>
-            )}
-          </div>
-        );
-      },
+      header: 'Ações', align: 'right', width: '150px',
+      render: (row) => (
+        <>
+          {row.status === 'PENDENTE' && (
+            <Button variant="warning" size="sm" onClick={() => setReceberTarget(row)}>
+              <Truck className="h-3.5 w-3.5" /> Receber
+            </Button>
+          )}
+          {row.status === 'RECEBIDA' && (
+            <Button size="sm" onClick={() => handleConcluir(row.id)}>
+              <CheckCircle className="h-3.5 w-3.5" /> Concluir
+            </Button>
+          )}
+        </>
+      ),
     },
   ];
 
-  const statusOptions = [
-    { value: 'Todos', label: 'Todos' },
-    { value: 'PENDENTE', label: 'Pendente' },
-    { value: 'RECEBIDA', label: 'Recebida' },
-    { value: 'CONCLUIDA', label: 'Concluída' },
-  ];
-
-  const kpiCardsData = [
-    { label: 'Pendentes', value: kpis.pendentes ?? 0, color: '#856404', description: 'Aguardando fornecedor' },
-    { label: 'Recebidas', value: kpis.recebidas ?? 0, color: '#004085', description: 'No estoque, aguardando entrega' },
-    { label: 'Concluídas no mês', value: kpis.concluidasNoMes ?? 0, color: '#155724', description: 'Entregues ao cliente' },
+  const kpiCards = kpis && [
+    { label: 'Pendentes', value: kpis.pendentes ?? 0, icon: Clock, tone: 'warning', description: 'Aguardando fornecedor' },
+    { label: 'Recebidas', value: kpis.recebidas ?? 0, icon: Truck, tone: 'primary', description: 'No estoque, aguardando entrega' },
+    { label: 'Concluídas no mês', value: kpis.concluidasNoMes ?? 0, icon: CheckCircle, tone: 'success', description: 'Entregues ao cliente' },
   ];
 
   return (
-    <PageLayout title="Encomendas" icon={ShoppingBag}>
-      {!canManage && (
-        <div className="mb-4 p-4 rounded-lg" style={{ backgroundColor: '#fff3cd', border: '1px solid #ffc107', color: '#856404' }}>
-          <strong>Sem permissão:</strong> Você não possui a permissão <code>GERENCIAR_ENCOMENDAS</code> para realizar ações (receber/concluir).
-        </div>
-      )}
+    <PageLayout title="Encomendas" description="Itens de orçamentos aceitos, do pedido ao fornecedor até a entrega ao cliente.">
+      {kpiCards ? <KPICardGrid cards={kpiCards} /> : <KPICardGridSkeleton count={3} />}
 
-      <div className="mb-6">
-        {loadingKpis ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Array(3).fill(0).map((_, i) => <SkeletonKPI key={i} />)}
-          </div>
-        ) : (
-          <KPICardGrid cards={kpiCardsData} />
-        )}
-      </div>
-
-      <div className="flex gap-3 mb-4 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '10px', boxShadow: 'var(--shadow-card)' }}>
-        <SearchBar value={searchTerm} onChange={handleSearch} placeholder="Buscar por item ou cliente..." />
-        <FilterSelect value={statusFilter} onChange={handleStatusChange} width="160px" options={statusOptions} />
+      <div className="toolbar">
+        <SearchBar value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(0); }} placeholder="Buscar por item ou cliente..." />
+        <FilterSelect label="Status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(0); }} options={STATUS_OPTIONS} />
       </div>
 
       <DataTable
         columns={columns}
         data={encomendas}
         loading={loading}
-        emptyMessage="Nenhuma encomenda encontrada"
-        skeletonRow={<SkeletonRow />}
+        empty={{ icon: ShoppingBag, title: 'Nenhuma encomenda encontrada', description: searchTerm || statusFilter ? 'Tente outra busca ou ajuste o filtro de status.' : 'As encomendas aparecem aqui quando um orçamento é aceito.' }}
       />
+      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
-      {totalPages > 1 && (
-        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-      )}
-
-      <ReceberEncomendaModal
-        isOpen={receberModal.open}
-        onClose={() => setReceberModal({ open: false, encomenda: null })}
-        encomenda={receberModal.encomenda}
-        onConfirm={handleReceberConfirm}
-        hasPermission={canManage}
-      />
+      <ReceberEncomendaModal encomenda={receberTarget} onClose={() => setReceberTarget(null)} onConfirm={handleReceber} />
     </PageLayout>
   );
 }

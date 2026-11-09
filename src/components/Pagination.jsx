@@ -1,22 +1,22 @@
-import { LucideChevronLeft, LucideChevronRight, LucideSendHorizontal, LucideSendToBack, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/Button';
 
 export default function Pagination({ currentPage, totalPages, onPageChange }) {
   if (totalPages <= 1) return null;
 
   return (
-    <div className="px-4 py-3 flex items-center justify-between border-t" style={{ borderColor: '#d0dde8' }}>
-      <p style={{ fontSize: '13px', color: '#5a82a0' }}>
-        Página {currentPage + 1} de {totalPages}
+    <nav className="mt-4 flex items-center justify-between" aria-label="Paginação">
+      <p className="numeric text-sm text-body">
+        Página <span className="font-semibold text-navy">{currentPage + 1}</span> de {totalPages}
       </p>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 0}>
-          <LucideChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="h-4 w-4" /> Anterior
         </Button>
         <Button variant="outline" size="sm" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages - 1}>
-          <LucideChevronRight className="w-4 h-4" />
+          Próxima <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }

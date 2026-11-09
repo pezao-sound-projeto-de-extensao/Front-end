@@ -1,26 +1,25 @@
 import { useEffect } from 'react';
 
-export default function PageLayout({ title, icon: Icon, actions, children }) {
+/**
+ * Estrutura padrão das páginas logadas: título, descrição, ações e conteúdo.
+ * banner: faixa opcional acima do conteúdo (ex.: alerta de estoque).
+ */
+export default function PageLayout({ title, documentTitle = title, description, actions, banner, children }) {
   useEffect(() => {
-    if (title) document.title = `${title} · StockFlow`;
-  }, [title]);
+    if (documentTitle) document.title = `${documentTitle} · StockFlow`;
+  }, [documentTitle]);
 
   return (
-    <div className="min-h-screen w-full" style={{ backgroundColor: 'var(--bg-page)' }}>
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 mb-6">
-          <div className="flex items-center gap-3 min-w-0">
-            {Icon && (
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#1565c0', color: '#ffffff', boxShadow: '0 2px 6px rgba(21,101,192,0.3)' }}>
-                <Icon className="w-5 h-5" />
-              </div>
-            )}
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#0d2137' }}>{title}</h2>
-          </div>
-          {actions && <div className="flex flex-wrap gap-3">{actions}</div>}
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-navy">{title}</h1>
+          {description && <p className="mt-1 text-sm text-body">{description}</p>}
         </div>
-        {children}
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
+      {banner && <div className="mb-6">{banner}</div>}
+      {children}
     </div>
   );
 }

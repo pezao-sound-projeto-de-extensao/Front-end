@@ -3,19 +3,19 @@ import { Loader2 } from 'lucide-react';
 export default function LoadingSpinner({ message = 'Carregando...', variant = 'inline' }) {
   if (variant === 'fullpage') {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center" style={{ backgroundColor: '#e8edf3' }}>
+      <div className="flex min-h-screen w-full items-center justify-center bg-page" role="status">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#1565c0] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: '#5a82a0', fontSize: '16px' }}>{message}</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-base text-muted">{message}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 text-center">
-      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" style={{ color: '#1565c0' }} />
-      <p style={{ color: '#5a82a0' }}>{message}</p>
+    <div className="p-8 text-center" role="status">
+      <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-primary" />
+      <p className="text-muted">{message}</p>
     </div>
   );
 }

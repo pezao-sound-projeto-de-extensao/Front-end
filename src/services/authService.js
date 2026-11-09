@@ -1,41 +1,13 @@
 import { api } from './api';
 
+const data = (request) => request.then((response) => response.data);
+
 export const authService = {
-  login: async (email, senha) => {
-    const response = await api.post('/auth/login', { email, senha });
-    return response.data;
-  },
-
-  refreshToken: async () => {
-    const response = await api.post('/auth/refresh', {});
-    return response.data;
-  },
-
-  logout: async () => {
-    try {
-      await api.post('/auth/logout', {});
-    } catch (error) {
-      console.error('Erro ao fazer logout no backend:', error);
-    }
-  },
-
-  trocarSenha: async ({ email, senhaAtual, senhaNova }) => {
-    const response = await api.post('/auth/trocar-senha', { email, senhaAtual, senhaNova });
-    return response.data;
-  },
-
-  resetarSenha: async (id) => {
-    const response = await api.put(`/auth/resetar-senha/${id}`);
-    return response.data;
-  },
-
-  esqueciSenha: async (email) => {
-    await api.post('/auth/esqueci-senha', { email });
-  },
-
-  redefinirSenha: async ({ token, senhaNova }) => {
-    await api.post('/auth/redefinir-senha', { token, senhaNova });
-  },
+  login: (email, senha) => data(api.post('/auth/login', { email, senha })),
+  me: () => data(api.get('/auth/me')),
+  logout: () => api.post('/auth/logout'),
+  trocarSenha: ({ email, senhaAtual, senhaNova }) => data(api.post('/auth/trocar-senha', { email, senhaAtual, senhaNova })),
+  resetarSenha: (id) => data(api.put(`/auth/resetar-senha/${id}`)),
+  esqueciSenha: (email) => api.post('/auth/esqueci-senha', { email }),
+  redefinirSenha: ({ token, senhaNova }) => api.post('/auth/redefinir-senha', { token, senhaNova }),
 };
-
-export default authService;
